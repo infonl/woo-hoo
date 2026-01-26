@@ -8,8 +8,8 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy dependency files and README (needed for package build)
+COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies (no dev deps for production)
 RUN uv sync --frozen --no-dev
@@ -32,24 +32,47 @@ CMD ["uv", "run", "pytest", "tests", "-v"]
 # Production stage
 FROM python:3.12-slim AS production
 
+# Build arguments for labeling
+ARG COMMIT_HASH=""
+ARG RELEASE=""
+
+# Labels following OCI conventions
+LABEL org.opencontainers.image.title="woo-hoo" \
+      org.opencontainers.image.description="LLM-powered DIWOO metadata generation service" \
+      org.opencontainers.image.url="https://github.com/GPP-Woo/woo-hoo" \
+      org.opencontainers.image.source="https://github.com/GPP-Woo/woo-hoo" \
+      org.opencontainers.image.documentation="https://github.com/GPP-Woo/woo-hoo" \
+      org.opencontainers.image.vendor="GPP-Woo" \
+      org.opencontainers.image.licenses="EUPL-1.2" \
+      org.opencontainers.image.revision="${COMMIT_HASH}" \
+      org.opencontainers.image.version="${RELEASE}"
+
 WORKDIR /app
 
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash appuser
+# Create non-root user (following GPP pattern)
+RUN useradd --create-home --uid 1000 --shell /bin/bash woo-hoo && \
+    mkdir -p /app/log && \
+    chown -R woo-hoo:woo-hoo /app
 
 # Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder --chown=woo-hoo:woo-hoo /app/.venv /app/.venv
 
 # Copy application code
-COPY --from=builder /app/src ./src
+COPY --from=builder --chown=woo-hoo:woo-hoo /app/src ./src
 
 # Set environment
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/src"
-ENV PYTHONUNBUFFERED=1
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src" \
+    PYTHONUNBUFFERED=1 \
+    # Default production settings
+    LOG_LEVEL=INFO \
+    LOG_FORMAT=json
+
+# Volume for logs (matches GPP pattern)
+VOLUME ["/app/log"]
 
 # Switch to non-root user
-USER appuser
+USER woo-hoo
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

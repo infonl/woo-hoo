@@ -1,4 +1,4 @@
-.PHONY: help install dev lint format typecheck test test-unit test-e2e test-cov docker-build docker-run docker-test categories generate download-samples test-real clean
+.PHONY: help install dev lint format typecheck test test-unit test-e2e test-cov docker-build docker-run docker-test categories generate download-samples test-real clean deploy-local deploy-local-delete
 
 # Sentinel file to track if dependencies are installed
 INSTALL_SENTINEL := .install-sentinel
@@ -36,7 +36,11 @@ help:
 	@echo "  make docker-run   Run in Docker"
 	@echo "  make docker-test  Run tests in Docker"
 	@echo ""
-	@echo "CLI shortcuts:"
+	@echo "Local Kubernetes (minikube):"
+	@echo "  make deploy-local        Deploy to minikube"
+	@echo "  make deploy-local-delete Remove deployment"
+	@echo ""
+	@echo "CLI shortcuts:
 	@echo "  make generate FILE=doc.pdf  Generate metadata from file"
 	@echo "  make categories             List Woo categories"
 	@echo ""
@@ -149,6 +153,18 @@ endif
 
 test-api-models: $(INSTALL_SENTINEL)
 	uv run python scripts/test_api_e2e.py --list-models
+
+# Local Kubernetes deployment (minikube)
+deploy-local:
+	@if [ ! -f deploy/local/secrets.env ]; then \
+		echo "Error: deploy/local/secrets.env not found"; \
+		echo "Create it: cp deploy/local/secrets.env.example deploy/local/secrets.env"; \
+		exit 1; \
+	fi
+	./deploy/local/deploy.sh
+
+deploy-local-delete:
+	./deploy/local/deploy.sh --delete
 
 # Cleanup
 clean:
