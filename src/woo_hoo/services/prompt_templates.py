@@ -1,92 +1,129 @@
 """LLM prompt templates for DIWOO metadata extraction.
 
-These prompts are designed in Dutch to optimize extraction quality
-for Dutch government documents.
+Uses instruction files for schema documentation and supports
+both structured JSON and XML output modes.
 """
 
 from __future__ import annotations
 
+from enum import Enum
 from string import Template
 
 from woo_hoo.models.enums import INFORMATIECATEGORIE_LABELS
+from woo_hoo.services.instruction_loader import get_diwoo_schema_instruction, get_diwoo_toml_instruction
 
 # Build category list for prompt
 CATEGORY_LIST = "\n".join(
     f"- {cat.name}: {label} (artikel {cat.artikel})" for cat, label in INFORMATIECATEGORIE_LABELS.items()
 )
 
-SYSTEM_PROMPT = (
-    """Je bent een expert in Nederlandse overheidsmetadata en de Wet open overheid (Woo).
+
+class OutputMode(str, Enum):
+    """Output mode for LLM responses."""
+
+    JSON = "json"
+    XML = "xml"
+
+
+def get_system_prompt(include_schema: bool = True, output_mode: OutputMode = OutputMode.JSON) -> str:
+    """Get the system prompt for metadata extraction.
+
+    Args:
+        include_schema: Whether to include the full DIWOO schema instruction
+        output_mode: Whether to output JSON or XML
+
+    Returns:
+        System prompt string
+    """
+    if output_mode == OutputMode.XML:
+        base_prompt = """Je bent een expert in Nederlandse overheidsmetadata en de Wet open overheid (Woo).
 Je taak is het analyseren van documentinhoud en het genereren van DIWOO-conforme metadata.
 
-Je hebt kennis van:
-- De 17 Woo-informatiecategorieën uit artikel 3.3
-- TOOI-waardelijsten voor documentsoorten, thema's en organisaties
-- DIWOO XSD-schemastructuur en -vereisten
-
-De 17 Woo-informatiecategorieën zijn:
+BELANGRIJKE REGELS:
+1. Antwoord ALLEEN met valid XML - geen markdown codeblocks, geen uitleg
+2. Gebruik exact de TOOI resource URIs zoals gespecificeerd
+3. Datums in ISO 8601 formaat: YYYY-MM-DD of YYYY-MM-DDTHH:MM:SS
+4. Selecteer minimaal één informatiecategorie uit de 17 Woo-categorieën
 """
-    + CATEGORY_LIST
-    + """
+        if include_schema:
+            # Use TOML-based instruction for XML mode
+            toml_instruction = get_diwoo_toml_instruction()
+            return f"{base_prompt}\n\n{toml_instruction}"
+        return base_prompt + f"\n\nDe 17 Woo-informatiecategorieën zijn:\n{CATEGORY_LIST}"
 
-Belangrijke regels:
-1. Selecteer ALTIJD minimaal één informatiecategorie uit de 17 Woo-categorieën
-2. Genereer een officiële titel die het document accuraat beschrijft
-3. Wees conservatief met confidentiescores - alleen hoog (>0.8) bij duidelijk bewijs
-4. Alle tekst moet in het Nederlands zijn tenzij het document in een andere taal is
-5. Gebruik alleen categorieën die echt van toepassing zijn
+    # Default JSON mode
+    base_prompt = """Je bent een expert in Nederlandse overheidsmetadata en de Wet open overheid (Woo).
+Je taak is het analyseren van documentinhoud en het genereren van DIWOO-conforme metadata.
 
-Antwoord ALLEEN met valid JSON volgens het gegeven schema. Geen markdown, geen uitleg."""
-)
+BELANGRIJKE REGELS:
+1. Antwoord ALLEEN met valid JSON - geen markdown codeblocks, geen uitleg
+2. Gebruik exact de categorie-codes zoals gespecificeerd (bijv. WOO_VERZOEKEN, niet "Woo-verzoeken")
+3. Datums in ISO 8601 formaat: YYYY-MM-DD
+4. Confidence scores tussen 0.0 en 1.0
+5. Selecteer minimaal één informatiecategorie uit de 17 Woo-categorieën
+"""
 
-EXTRACTION_PROMPT_TEMPLATE = Template("""Analyseer het volgende documentfragment en genereer DIWOO-conforme metadata.
+    if include_schema:
+        schema_instruction = get_diwoo_schema_instruction()
+        return f"{base_prompt}\n\n{schema_instruction}"
 
-DOCUMENTINHOUD:
+    return base_prompt + f"\n\nDe 17 Woo-informatiecategorieën zijn:\n{CATEGORY_LIST}"
+
+
+EXTRACTION_PROMPT_JSON = Template("""Analyseer het volgende document en genereer DIWOO-conforme metadata.
+
+## DOCUMENT
 ---
 $document_text
 ---
 $publisher_hint
 
-Genereer metadata in exact het volgende JSON-formaat:
-{
-    "officiele_titel": "De officiële titel van het document (verplicht, max 200 tekens)",
-    "verkorte_titels": ["Optionele korte titel"] of null,
-    "omschrijvingen": ["Korte beschrijving van de inhoud (max 500 tekens)"] of null,
-    "informatiecategorieen": [
-        {
-            "categorie": "NAAM_VAN_CATEGORIE (kies uit de 17 categorieën)",
-            "confidence": 0.0 tot 1.0,
-            "reasoning": "Korte uitleg waarom deze categorie"
-        }
-    ],
-    "documentsoorten": ["BRIEF", "NOTA", "RAPPORT", "BESLUIT", "ADVIES", "NOTULEN", "AGENDA", "VERSLAG", etc.] of null,
-    "trefwoorden": ["Relevante zoektermen in Nederlands"],
-    "taal": "NL",
-    "creatiedatum": "YYYY-MM-DD indien te bepalen uit document, anders null",
-    "confidence_scores": {
-        "titel": 0.0 tot 1.0,
-        "informatiecategorie": 0.0 tot 1.0,
-        "overall": 0.0 tot 1.0
-    }
-}
+## OPDRACHT
 
-Mogelijke informatiecategorieën (kies de juiste naam):
+Extraheer metadata volgens het DIWOO schema in de systeemprompt.
+
+Belangrijke extractie-instructies:
+1. Zoek naar KENMERK, zaaknummer, referentienummers → identifiers
+2. Zoek naar organisatie in briefhoofd, handtekening, retouradres → publisher
+3. Zoek naar datums in briefhoofd of tekst → creatiedatum
+4. Zoek naar onderwerpregel of documenttitel → titelcollectie.officieleTitel
+5. Zoek naar namen in handtekeningblok → naamOpsteller
+6. Identificeer bijlagen, verwijzingen → documentrelaties
+
+CATEGORIE CODES (gebruik exact deze waarden):
 $category_options
 
-Mogelijke documentsoorten:
-BRIEF, NOTA, RAPPORT, BESLUIT, ADVIES, NOTULEN, AGENDA, VERSLAG, CONVENANT, OVEREENKOMST, BELEIDSREGEL, CIRCULAIRE, BESCHIKKING, WOO_BESLUIT, ONDERZOEKSRAPPORT, JAARVERSLAG, JAARPLAN, KLACHTOORDEEL, MEMORIE_VAN_TOELICHTING, AMENDEMENT, MOTIE
+Retourneer ALLEEN valid JSON volgens het schema, geen andere tekst.""")
 
-Tips voor analyse:
-- Kijk naar briefhoofden, ondertekeningen en referentienummers
-- Let op datumnotaties en tijdsaanduidingen
-- Identificeer juridische termen die wijzen op specifieke documentsoorten
-- Bij twijfel: lagere confidence score en meerdere mogelijke categorieën""")
+
+EXTRACTION_PROMPT_XML = Template("""Analyseer het volgende document en genereer DIWOO-conforme metadata als XML.
+
+## DOCUMENT
+---
+$document_text
+---
+$publisher_hint
+
+## OPDRACHT
+
+Extraheer metadata en genereer valid XML volgens het DIWOO XSD schema (v0.9.8).
+
+Belangrijke extractie-instructies:
+1. Zoek naar KENMERK, zaaknummer, referentienummers → diwoo:identifiers
+2. Zoek naar organisatie in briefhoofd, handtekening, retouradres → diwoo:publisher
+3. Zoek naar datums in briefhoofd of tekst → diwoo:creatiedatum
+4. Zoek naar onderwerpregel of documenttitel → diwoo:officieleTitel
+5. Zoek naar namen in handtekeningblok → diwoo:naamOpsteller
+6. Identificeer bijlagen, verwijzingen → diwoo:documentrelaties
+
+Retourneer ALLEEN valid XML met de diwoo namespace, geen markdown codeblocks of uitleg.""")
 
 
 def build_extraction_prompt(
     document_text: str,
     publisher_hint: str | None = None,
     max_text_length: int = 15000,
+    output_mode: OutputMode = OutputMode.JSON,
 ) -> str:
     """Build the extraction prompt with document text.
 
@@ -94,6 +131,7 @@ def build_extraction_prompt(
         document_text: Extracted text content from the document
         publisher_hint: Optional hint about the publishing organization
         max_text_length: Maximum text length to include (truncates if longer)
+        output_mode: Whether to output JSON or XML
 
     Returns:
         Formatted prompt string
@@ -106,22 +144,15 @@ def build_extraction_prompt(
     # Build publisher hint section
     publisher_section = ""
     if publisher_hint:
-        publisher_section = f"\nPUBLISHER: Dit document is afkomstig van: {publisher_hint}\n"
+        publisher_section = f"\nPUBLISHER HINT: {publisher_hint}\n"
 
-    # Build category options
-    category_options = "\n".join(f"{cat.name} = {label}" for cat, label in INFORMATIECATEGORIE_LABELS.items())
+    # Build category options with descriptions
+    category_options = "\n".join(f"- {cat.name}: {label}" for cat, label in INFORMATIECATEGORIE_LABELS.items())
 
-    return EXTRACTION_PROMPT_TEMPLATE.substitute(
+    template = EXTRACTION_PROMPT_XML if output_mode == OutputMode.XML else EXTRACTION_PROMPT_JSON
+
+    return template.substitute(
         document_text=truncated_text,
         publisher_hint=publisher_section,
         category_options=category_options,
     )
-
-
-def get_system_prompt() -> str:
-    """Get the system prompt for metadata extraction.
-
-    Returns:
-        System prompt string
-    """
-    return SYSTEM_PROMPT

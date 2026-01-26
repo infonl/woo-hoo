@@ -143,31 +143,48 @@ class TestGenerateEndpoint:
         sample_publisher_hint: dict,
     ):
         """Test generation with mocked LLM response."""
-        import json
 
         from woo_hoo.services.openrouter import ChatCompletionChoice, ChatCompletionResponse, ChatMessage
 
-        mock_llm_response = {
-            "officiele_titel": "Advies inzake wijziging bestemmingsplan Centrum",
-            "verkorte_titels": ["Advies bestemmingsplan"],
-            "omschrijvingen": ["Advies over wijziging bestemmingsplan"],
-            "informatiecategorieen": [
-                {
-                    "categorie": "ADVIEZEN",
-                    "confidence": 0.95,
-                    "reasoning": "Document bevat advies aan college",
-                }
-            ],
-            "documentsoorten": ["ADVIES"],
-            "trefwoorden": ["bestemmingsplan", "horeca", "centrum"],
-            "taal": "NL",
-            "creatiedatum": "2024-01-15",
-            "confidence_scores": {
-                "titel": 0.92,
-                "informatiecategorie": 0.95,
-                "overall": 0.90,
-            },
-        }
+        # Mock XML response (XML is now the default mode)
+        mock_xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+<diwoo:Document xmlns:diwoo="https://standaarden.overheid.nl/diwoo/metadata/">
+  <diwoo:DiWoo>
+    <diwoo:identifiers>
+      <diwoo:identifier>ADV-2024-001</diwoo:identifier>
+    </diwoo:identifiers>
+    <diwoo:publisher resource="https://identifier.overheid.nl/tooi/id/gemeente/gm0363">Gemeente Amsterdam</diwoo:publisher>
+    <diwoo:titelcollectie>
+      <diwoo:officieleTitel>Advies inzake wijziging bestemmingsplan Centrum</diwoo:officieleTitel>
+      <diwoo:verkorteTitel>Advies bestemmingsplan</diwoo:verkorteTitel>
+    </diwoo:titelcollectie>
+    <diwoo:omschrijvingen>
+      <diwoo:omschrijving>Advies over wijziging bestemmingsplan</diwoo:omschrijving>
+    </diwoo:omschrijvingen>
+    <diwoo:classificatiecollectie>
+      <diwoo:informatiecategorieen>
+        <diwoo:informatiecategorie resource="https://identifier.overheid.nl/tooi/def/thes/kern/c_5ba23c01">Adviezen</diwoo:informatiecategorie>
+      </diwoo:informatiecategorieen>
+      <diwoo:documentsoorten>
+        <diwoo:documentsoort resource="https://identifier.overheid.nl/tooi/def/thes/kern/c_advies">advies</diwoo:documentsoort>
+      </diwoo:documentsoorten>
+      <diwoo:trefwoorden>
+        <diwoo:trefwoord>bestemmingsplan</diwoo:trefwoord>
+        <diwoo:trefwoord>horeca</diwoo:trefwoord>
+        <diwoo:trefwoord>centrum</diwoo:trefwoord>
+      </diwoo:trefwoorden>
+    </diwoo:classificatiecollectie>
+    <diwoo:creatiedatum>2024-01-15</diwoo:creatiedatum>
+    <diwoo:language resource="https://identifier.overheid.nl/tooi/def/thes/kern/c_nl">Nederlands</diwoo:language>
+    <diwoo:documenthandelingen>
+      <diwoo:documenthandeling>
+        <diwoo:soortHandeling resource="https://identifier.overheid.nl/tooi/def/thes/kern/c_vaststelling">vaststelling</diwoo:soortHandeling>
+        <diwoo:atTime>2024-01-15T10:00:00</diwoo:atTime>
+        <diwoo:wasAssociatedWith resource="https://identifier.overheid.nl/tooi/id/gemeente/gm0363">Gemeente Amsterdam</diwoo:wasAssociatedWith>
+      </diwoo:documenthandeling>
+    </diwoo:documenthandelingen>
+  </diwoo:DiWoo>
+</diwoo:Document>"""
 
         # Create a properly typed mock response
         mock_response = ChatCompletionResponse(
@@ -176,7 +193,7 @@ class TestGenerateEndpoint:
             choices=[
                 ChatCompletionChoice(
                     index=0,
-                    message=ChatMessage(role="assistant", content=json.dumps(mock_llm_response)),
+                    message=ChatMessage(role="assistant", content=mock_xml_response),
                     finish_reason="stop",
                 )
             ],
@@ -204,6 +221,76 @@ class TestGenerateEndpoint:
             data["suggestion"]["metadata"]["titelcollectie"]["officieleTitel"]
             == "Advies inzake wijziging bestemmingsplan Centrum"
         )
+
+
+class TestModelsEndpoint:
+    """Tests for the models endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_list_models(self, async_client: AsyncClient):
+        """Should return list of available models."""
+        response = await async_client.get("/api/v1/metadata/models")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "default_model" in data
+        assert "recommended_models" in data
+        assert "eu_recommendation" in data
+        assert len(data["recommended_models"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_models_have_required_fields(self, async_client: AsyncClient):
+        """Each model should have required fields."""
+        response = await async_client.get("/api/v1/metadata/models")
+
+        data = response.json()
+        for model in data["recommended_models"]:
+            assert "id" in model
+            assert "name" in model
+            assert "is_default" in model
+            assert "is_eu_based" in model
+
+    @pytest.mark.asyncio
+    async def test_eu_models_listed_first(self, async_client: AsyncClient):
+        """EU-based models should be listed before non-EU models."""
+        response = await async_client.get("/api/v1/metadata/models")
+
+        data = response.json()
+        models = data["recommended_models"]
+
+        # Find first non-EU model index
+        first_non_eu_idx = None
+        for i, m in enumerate(models):
+            if not m["is_eu_based"]:
+                first_non_eu_idx = i
+                break
+
+        # All models before first non-EU should be EU-based
+        if first_non_eu_idx is not None:
+            for m in models[:first_non_eu_idx]:
+                assert m["is_eu_based"] is True
+
+    @pytest.mark.asyncio
+    async def test_non_eu_models_have_warning(self, async_client: AsyncClient):
+        """Non-EU models should have a warning message."""
+        response = await async_client.get("/api/v1/metadata/models")
+
+        data = response.json()
+        for model in data["recommended_models"]:
+            if not model["is_eu_based"]:
+                assert model.get("warning") is not None
+                assert "EU" in model["warning"]
+
+    @pytest.mark.asyncio
+    async def test_default_model_is_eu_based(self, async_client: AsyncClient):
+        """The default model should be EU-based."""
+        response = await async_client.get("/api/v1/metadata/models")
+
+        data = response.json()
+        default_model = data["default_model"]
+
+        # Default should start with mistralai/
+        assert default_model.startswith("mistralai/")
 
 
 class TestOpenAPISchema:

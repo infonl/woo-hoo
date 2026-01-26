@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from woo_hoo.config import get_settings
 from woo_hoo.models.diwoo import DiWooMetadata
-from woo_hoo.models.enums import InformatieCategorie
+from woo_hoo.models.enums import DEFAULT_LLM_MODEL, InformatieCategorie, LLMModel
 from woo_hoo.models.requests import (
     DocumentContent,
     MetadataGenerationRequest,
@@ -19,6 +19,8 @@ from woo_hoo.models.responses import (
     CategoryInfo,
     MetadataGenerationResponse,
     MetadataValidationResponse,
+    ModelInfo,
+    ModelsResponse,
 )
 from woo_hoo.services.document_extractor import DocumentExtractionError, extract_text_from_bytes
 from woo_hoo.services.metadata_generator import MetadataGenerator
@@ -74,6 +76,7 @@ async def generate_metadata_from_file(
     file: UploadFile = File(..., description="PDF or text file to analyze"),
     publisher_name: str | None = Form(None, description="Publisher organization name"),
     publisher_uri: str | None = Form(None, description="Publisher TOOI URI"),
+    model: str = Form(DEFAULT_LLM_MODEL, description="LLM model to use (any valid OpenRouter model ID)"),
 ) -> MetadataGenerationResponse:
     """Generate DIWOO metadata from an uploaded file.
 
@@ -83,6 +86,7 @@ async def generate_metadata_from_file(
         file: Uploaded file
         publisher_name: Optional publisher organization name
         publisher_uri: Optional publisher TOOI URI
+        model: LLM model to use (defaults to Mistral Large)
 
     Returns:
         Generated metadata with confidence scores
@@ -98,6 +102,13 @@ async def generate_metadata_from_file(
             detail=f"Failed to extract text from file: {e}",
         ) from e
 
+    # Validate model format
+    if not LLMModel.is_valid_openrouter_model(model):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid model ID format: {model}. Expected format: provider/model-name",
+        )
+
     # Build request
     publisher_hint = None
     if publisher_name:
@@ -109,6 +120,7 @@ async def generate_metadata_from_file(
     request = MetadataGenerationRequest(
         document=DocumentContent(text=text, filename=file.filename),
         publisher_hint=publisher_hint,
+        model=model,
     )
 
     generator = MetadataGenerator()
@@ -171,3 +183,43 @@ async def list_categories() -> CategoriesResponse:
         for cat in InformatieCategorie
     ]
     return CategoriesResponse(categories=categories)
+
+
+@router.get(
+    "/models",
+    response_model=ModelsResponse,
+    summary="List available LLM models",
+    description=(
+        "Get recommended LLM models for metadata extraction. "
+        "EU-based models (Mistral AI) are recommended for data sovereignty compliance. "
+        "Any valid OpenRouter model can be used."
+    ),
+)
+async def list_models() -> ModelsResponse:
+    """List available LLM models for metadata extraction.
+
+    Returns:
+        List of recommended models with the default highlighted.
+        EU-based models are listed first for data sovereignty compliance.
+    """
+    eu_model_set = LLMModel.eu_models()
+
+    # Separate EU and non-EU models, EU models first
+    eu_models_list = [m for m in LLMModel if m in eu_model_set]
+    non_eu_models_list = [m for m in LLMModel if m not in eu_model_set]
+
+    recommended = []
+    for model in eu_models_list + non_eu_models_list:
+        recommended.append(
+            ModelInfo(
+                id=model.value,
+                name=model.name.replace("_", " ").title(),
+                is_default=model == LLMModel.default(),
+                is_eu_based=model in eu_model_set,
+            )
+        )
+
+    return ModelsResponse(
+        default_model=DEFAULT_LLM_MODEL,
+        recommended_models=recommended,
+    )

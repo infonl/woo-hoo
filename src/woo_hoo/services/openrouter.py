@@ -106,10 +106,15 @@ class OpenRouterClient:
         """Convert SDK response to our internal response model."""
         choices = []
         for choice in sdk_response.choices or []:
-            message = ChatMessage(
-                role=choice.message.role if choice.message else "assistant",
-                content=choice.message.content if choice.message and choice.message.content else "",
-            )
+            # SDK uses ROLE as class constant, not role as instance attribute
+            msg = choice.message
+            if msg:
+                role = getattr(msg, "ROLE", None) or getattr(msg, "role", "assistant")
+                content = msg.content or ""
+            else:
+                role = "assistant"
+                content = ""
+            message = ChatMessage(role=role, content=content)
             choices.append(
                 ChatCompletionChoice(
                     index=choice.index,

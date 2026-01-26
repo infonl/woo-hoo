@@ -407,6 +407,27 @@ class DiWooMetadata(BaseModel):
         alias="redenVerwijderingVervanging",
     )
 
+    def to_dict(self) -> dict:
+        """Convert to dictionary with camelCase aliases.
+
+        Returns:
+            Dictionary representation with DIWOO-compliant field names.
+        """
+        return self.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    def to_json(self, indent: int = 2) -> str:
+        """Convert to JSON string with camelCase aliases.
+
+        Args:
+            indent: JSON indentation level (default 2)
+
+        Returns:
+            JSON string representation with DIWOO-compliant field names.
+        """
+        import json
+
+        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
+
 
 class Document(BaseModel):
     """Root Document element per DIWOO DocumentType.

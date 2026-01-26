@@ -85,3 +85,46 @@ class ReadyResponse(BaseModel):
 
     status: str = Field(..., description="Readiness status")
     openrouter_connected: bool = Field(..., description="OpenRouter API connectivity")
+
+
+class ModelInfo(BaseModel):
+    """Information about an LLM model."""
+
+    id: str = Field(..., description="OpenRouter model ID (e.g., 'mistralai/mistral-large-2512')")
+    name: str = Field(..., description="Human-readable model name")
+    is_default: bool = Field(default=False, description="Whether this is the default model")
+    is_eu_based: bool = Field(default=False, description="Whether model is hosted in EU (data sovereignty)")
+    warning: str | None = Field(
+        default=None,
+        description="Warning message for non-EU models regarding data sovereignty",
+    )
+
+    def model_post_init(self, _context: object) -> None:
+        """Add warning for non-EU models."""
+        if not self.is_eu_based and self.warning is None:
+            object.__setattr__(
+                self,
+                "warning",
+                "Non-EU model: Data may be processed outside the EU. "
+                "Consider using Mistral AI models for Dutch government data sovereignty compliance.",
+            )
+
+
+class ModelsResponse(BaseModel):
+    """Response listing available LLM models."""
+
+    default_model: str = Field(..., description="Default model ID (EU-based)")
+    recommended_models: list[ModelInfo] = Field(
+        ..., description="Recommended models for metadata extraction. EU-based models listed first."
+    )
+    eu_recommendation: str = Field(
+        default=(
+            "For Dutch government documents, EU-based models (Mistral AI) are strongly recommended "
+            "for data sovereignty compliance under GDPR and Dutch privacy regulations."
+        ),
+        description="EU data sovereignty recommendation",
+    )
+    note: str = Field(
+        default="Any valid OpenRouter model ID can be used via the 'model' parameter.",
+        description="Usage note",
+    )

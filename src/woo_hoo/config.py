@@ -27,12 +27,12 @@ class Settings(BaseSettings):
         description="OpenRouter API key for LLM access (required for generation)",
     )
     default_model: str = Field(
-        "mistralai/mistral-large-2411",
-        description="Default LLM model (EU-based Mistral preferred for Dutch govt)",
+        "mistralai/mistral-large-2512",
+        description="Default LLM model (EU-based Mistral preferred for Dutch govt data sovereignty)",
     )
     fallback_model: str = Field(
-        "mistralai/mistral-small-2501",
-        description="Fallback model if primary fails",
+        "mistralai/mistral-small-3.2-24b-instruct-2506",
+        description="Fallback model if primary fails (also EU-based)",
     )
 
     # Application

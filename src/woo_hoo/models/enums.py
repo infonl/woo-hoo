@@ -261,3 +261,126 @@ class RedenVerwijderingVervanging(str, Enum):
     def tooi_uri(self) -> str:
         """Full TOOI URI."""
         return f"https://identifier.overheid.nl/tooi/def/thes/kern/{self.value}"
+
+
+class LLMModel(str, Enum):
+    """Recommended LLM models for metadata extraction via OpenRouter.
+
+    These models have been tested for Dutch government document analysis.
+    Any valid OpenRouter model ID can be used, but these are recommended.
+
+    IMPORTANT: For Dutch government documents, EU-based models are strongly
+    recommended for data sovereignty compliance. Mistral AI models are hosted
+    in the EU (France). Non-EU models may transfer data to US servers.
+
+    Default is Mistral Large (EU-based) for data sovereignty compliance.
+    """
+
+    # =========================================================================
+    # EU-BASED MODELS (Recommended for Dutch Government)
+    # Mistral AI - French company, servers hosted in EU
+    # =========================================================================
+
+    # Mistral Large - Best quality, recommended default
+    MISTRAL_LARGE_2512 = "mistralai/mistral-large-2512"  # Latest, 675B MoE
+    MISTRAL_LARGE_2411 = "mistralai/mistral-large-2411"  # Previous stable
+    MISTRAL_LARGE_2407 = "mistralai/mistral-large-2407"  # Legacy
+
+    # Mistral Medium - Good balance of quality and cost
+    MISTRAL_MEDIUM_3_1 = "mistralai/mistral-medium-3.1"
+    MISTRAL_MEDIUM_3 = "mistralai/mistral-medium-3"
+
+    # Mistral Small - Fast and cost-effective
+    MISTRAL_SMALL_3_2 = "mistralai/mistral-small-3.2-24b-instruct-2506"
+    MISTRAL_SMALL_3_1 = "mistralai/mistral-small-3.1-24b-instruct-2503"
+    MISTRAL_SMALL_2501 = "mistralai/mistral-small-24b-instruct-2501"
+
+    # Mistral Nemo - Lightweight, fast
+    MISTRAL_NEMO = "mistralai/mistral-nemo"
+
+    # Ministral - Compact models
+    MINISTRAL_14B = "mistralai/ministral-14b-2512"
+    MINISTRAL_8B = "mistralai/ministral-8b-2512"
+    MINISTRAL_3B = "mistralai/ministral-3b"
+
+    # Mixtral - Open-source MoE
+    MIXTRAL_8X7B = "mistralai/mixtral-8x7b-instruct"
+
+    # Mistral 7B - Lightweight open model
+    MISTRAL_7B = "mistralai/mistral-7b-instruct-v0.3"
+
+    # =========================================================================
+    # NON-EU MODELS (Warning: Data may be processed outside EU)
+    # Use only if EU data sovereignty is not a requirement
+    # =========================================================================
+
+    # Anthropic Claude (US-based)
+    CLAUDE_4_5_SONNET = "anthropic/claude-4.5-sonnet-20250929"  # WARNING: Non-EU
+    CLAUDE_4_5_OPUS = "anthropic/claude-4.5-opus-20251124"  # WARNING: Non-EU
+    CLAUDE_4_SONNET = "anthropic/claude-4-sonnet-20250522"  # WARNING: Non-EU
+    CLAUDE_4_5_HAIKU = "anthropic/claude-4.5-haiku-20251001"  # WARNING: Non-EU
+    CLAUDE_3_5_SONNET = "anthropic/claude-3.5-sonnet"  # WARNING: Non-EU
+    CLAUDE_3_5_HAIKU = "anthropic/claude-3-5-haiku"  # WARNING: Non-EU
+
+    # OpenAI (US-based)
+    GPT_5_1 = "openai/gpt-5.1-20251113"  # WARNING: Non-EU
+    GPT_5 = "openai/gpt-5-2025-08-07"  # WARNING: Non-EU
+    GPT_5_MINI = "openai/gpt-5-mini-2025-08-07"  # WARNING: Non-EU
+    GPT_4_1 = "openai/gpt-4.1-2025-04-14"  # WARNING: Non-EU
+    GPT_4_1_MINI = "openai/gpt-4.1-mini-2025-04-14"  # WARNING: Non-EU
+    GPT_4O = "openai/gpt-4o"  # WARNING: Non-EU
+    GPT_4O_MINI = "openai/gpt-4o-mini"  # WARNING: Non-EU
+
+    # Google (US-based)
+    GEMINI_2_5_PRO = "google/gemini-2.5-pro"  # WARNING: Non-EU
+    GEMINI_2_5_FLASH = "google/gemini-2.5-flash"  # WARNING: Non-EU
+    GEMINI_2_5_FLASH_LITE = "google/gemini-2.5-flash-lite"  # WARNING: Non-EU
+
+    @classmethod
+    def default(cls) -> LLMModel:
+        """Get the default model (Mistral Large for EU compliance)."""
+        return cls.MISTRAL_LARGE_2512
+
+    @classmethod
+    def eu_models(cls) -> set[LLMModel]:
+        """Get all EU-based models (Mistral AI)."""
+        return {
+            cls.MISTRAL_LARGE_2512,
+            cls.MISTRAL_LARGE_2411,
+            cls.MISTRAL_LARGE_2407,
+            cls.MISTRAL_MEDIUM_3_1,
+            cls.MISTRAL_MEDIUM_3,
+            cls.MISTRAL_SMALL_3_2,
+            cls.MISTRAL_SMALL_3_1,
+            cls.MISTRAL_SMALL_2501,
+            cls.MISTRAL_NEMO,
+            cls.MINISTRAL_14B,
+            cls.MINISTRAL_8B,
+            cls.MINISTRAL_3B,
+            cls.MIXTRAL_8X7B,
+            cls.MISTRAL_7B,
+        }
+
+    @classmethod
+    def is_eu_based(cls, model_id: str) -> bool:
+        """Check if a model is EU-based (data sovereignty compliant).
+
+        Mistral AI models are hosted in the EU (France).
+        """
+        return model_id.startswith("mistralai/")
+
+    @classmethod
+    def is_valid_openrouter_model(cls, model_id: str) -> bool:
+        """Check if a model ID looks like a valid OpenRouter model.
+
+        This is a basic format check - actual validation happens at OpenRouter.
+        Valid format: provider/model-name
+        """
+        if not model_id or "/" not in model_id:
+            return False
+        parts = model_id.split("/")
+        return len(parts) == 2 and all(part.strip() for part in parts)
+
+
+# Default model for metadata extraction (EU-based for data sovereignty)
+DEFAULT_LLM_MODEL = LLMModel.MISTRAL_LARGE_2512.value

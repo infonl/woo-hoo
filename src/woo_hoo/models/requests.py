@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
+
+from woo_hoo.models.enums import DEFAULT_LLM_MODEL, LLMModel
 
 
 class PublisherHint(BaseModel):
@@ -49,14 +51,26 @@ class MetadataGenerationRequest(BaseModel):
         default=None,
         description="Hint about the publishing organization",
     )
-    preferred_model: str | None = Field(
-        default=None,
-        description="Preferred LLM model override (defaults to EU-based Mistral)",
+    model: str = Field(
+        default=DEFAULT_LLM_MODEL,
+        description=(
+            f"LLM model to use. Default: {DEFAULT_LLM_MODEL} (EU-based). "
+            f"Recommended models: {', '.join(m.value for m in LLMModel)}. "
+            "Any valid OpenRouter model ID is accepted."
+        ),
     )
     include_confidence: bool = Field(
         default=True,
         description="Include confidence scores in response",
     )
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, v: str) -> str:
+        """Validate that model ID has valid OpenRouter format."""
+        if not LLMModel.is_valid_openrouter_model(v):
+            raise ValueError(f"Invalid model ID format: {v}. Expected format: provider/model-name")
+        return v
 
 
 class MetadataValidationRequest(BaseModel):

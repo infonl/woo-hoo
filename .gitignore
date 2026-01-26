@@ -208,3 +208,6 @@ __marimo__/
 
 # Generated metadata from test runs (keep PDFs for reproducibility)
 data/samples/*.metadata.json
+
+# Makefile install sentinel
+.install-sentinel
