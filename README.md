@@ -81,10 +81,12 @@ curl -X POST http://localhost:8000/api/v1/metadata/generate \
 |--------|------|-------------|
 | `POST` | `/api/v1/metadata/generate` | Generate metadata from text |
 | `POST` | `/api/v1/metadata/generate-from-file` | Generate from uploaded file |
+| `POST` | `/api/v1/metadata/generate-from-publicatiebank` | Generate from publicatiebank document UUID |
 | `POST` | `/api/v1/metadata/validate` | Validate metadata |
 | `GET` | `/api/v1/metadata/categories` | List 17 Woo categories |
 | `GET` | `/api/v1/metadata/models` | List available LLM models |
 | `GET` | `/health` | Health check |
+| `GET` | `/ready` | Readiness check |
 | `GET` | `/docs` | Swagger UI |
 
 ### Model Selection
@@ -150,6 +152,66 @@ curl http://localhost:8000/api/v1/metadata/models
 | BESCHIKKINGEN | Beschikkingen | 3.3.2k |
 | KLACHTOORDELEN | Klachtoordelen | 3.3.2l |
 
+## Docker
+
+```bash
+# Build and run
+make docker-build
+make docker-run
+
+# Or with docker-compose
+docker compose up woo-hoo
+
+# Development mode with hot reload
+docker compose --profile dev up woo-hoo-dev
+
+# Run tests in Docker
+docker compose --profile test up test
+```
+
+## Kubernetes Deployment
+
+### Local (Minikube)
+
+```bash
+# Setup secrets
+cp deploy/local/secrets.env.example deploy/local/secrets.env
+# Edit secrets.env with your OPENROUTER_API_KEY
+
+# Deploy
+make deploy-local
+
+# Add to /etc/hosts
+echo "$(minikube ip) woo-hoo.local" | sudo tee -a /etc/hosts
+
+# Access
+curl http://woo-hoo.local/health
+
+# Delete
+make deploy-local-delete
+```
+
+### Production
+
+```bash
+# Create secret from environment
+kubectl create secret generic woo-hoo-secrets \
+  --from-literal=OPENROUTER_API_KEY=$OPENROUTER_API_KEY \
+  --from-literal=GPP_API_TOKEN=$GPP_API_TOKEN
+
+# Deploy with Helm
+helm install woo-hoo ./charts/woo-hoo \
+  -f deploy/values-production.yaml
+
+# Or from GitHub Container Registry
+helm install woo-hoo ./charts/woo-hoo \
+  --set image.repository=ghcr.io/gpp-woo/woo-hoo \
+  --set image.tag=0.1.0 \
+  --set existingSecret=woo-hoo-secrets
+```
+
+See [deploy/values-production.yaml.example](deploy/values-production.yaml.example) for full configuration options.
+
 ## Development
 
 ```bash
@@ -162,9 +224,8 @@ make lint
 # Format code
 make format
 
-# Run with Docker
-make docker-build
-make docker-run
+# Type check
+make typecheck
 ```
 
 ### Testing with Real Documents
@@ -194,8 +255,12 @@ Environment variables (see `.env.example`):
 |----------|-------------|---------|
 | `OPENROUTER_API_KEY` | OpenRouter API key | (required) |
 | `DEFAULT_MODEL` | LLM model | `mistralai/mistral-large-2512` |
+| `FALLBACK_MODEL` | Fallback LLM model | `mistralai/mistral-small-3.2-24b-instruct-2506` |
 | `LOG_LEVEL` | Logging level | `INFO` |
+| `LOG_FORMAT` | Log format (`json` or `console`) | `json` |
 | `MAX_TEXT_LENGTH` | Max document length | `15000` |
+| `GPP_PUBLICATIEBANK_URL` | Publicatiebank API URL | (optional) |
+| `GPP_API_TOKEN` | Publicatiebank API token | (optional) |
 
 ## Architecture
 
@@ -204,14 +269,20 @@ woo-hoo/
 ├── src/woo_hoo/
 │   ├── api/           # FastAPI endpoints
 │   ├── models/        # Pydantic models (DIWOO schema, enums)
-│   ├── services/      # Business logic (OpenRouter, XML parsing)
+│   ├── services/      # Business logic (OpenRouter, XML parsing, publicatiebank)
 │   ├── instructions/  # TOML config for LLM prompts
 │   ├── schemas/       # XSD schema for validation
 │   └── cli.py         # Typer CLI
+├── charts/woo-hoo/    # Helm chart for Kubernetes
+├── deploy/
+│   ├── local/         # Local minikube deployment
+│   └── values-*.yaml  # Production values examples
 ├── scripts/           # E2E testing scripts
 ├── tests/
 │   ├── unit/          # Model tests
 │   └── integration/   # API e2e tests
+├── Dockerfile         # Multi-stage Docker build
+├── docker-compose.yml # Local development
 └── Makefile           # Common tasks
 ```
 
@@ -222,7 +293,19 @@ This service is designed to integrate with:
 - **GPP-app**: C#/.NET frontend for document management
 - **GPP-publicatiebank**: Django backend for document storage
 
-The generated metadata follows the same structure used by these applications.
+### Publicatiebank Integration
+
+Generate metadata directly from documents stored in GPP-publicatiebank:
+
+```bash
+# Configure publicatiebank URL
+export GPP_PUBLICATIEBANK_URL=http://gpp-publicatiebank:8000
+
+# Generate metadata from a document UUID
+curl -X POST "http://localhost:8000/api/v1/metadata/generate-from-publicatiebank?document_uuid=550e8400-e29b-41d4-a716-446655440000"
+```
+
+The generated metadata follows the same DIWOO structure used by these applications.
 
 ## License
 
