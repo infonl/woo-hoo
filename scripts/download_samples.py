@@ -9,6 +9,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 SAMPLES_DIR = Path(__file__).parent.parent / "data" / "samples"
 
@@ -50,26 +53,30 @@ def download_samples() -> None:
     """Download sample documents for testing."""
     SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"Downloading samples to: {SAMPLES_DIR}")
+    logger.info("Downloading samples", target_dir=str(SAMPLES_DIR))
 
     with httpx.Client(timeout=60.0, follow_redirects=True) as client:
         for sample in SAMPLE_URLS:
             filepath = SAMPLES_DIR / sample["filename"]
 
             if filepath.exists():
-                print(f"  Skipping (exists): {sample['filename']}")
+                logger.info("Skipping (exists)", filename=sample["filename"])
                 continue
 
-            print(f"  Downloading: {sample['filename']}...")
+            logger.info("Downloading", filename=sample["filename"])
             try:
                 response = client.get(sample["url"])
                 response.raise_for_status()
 
                 filepath.write_bytes(response.content)
-                print(f"    Saved: {filepath} ({len(response.content) / 1024:.1f} KB)")
+                logger.info(
+                    "Saved",
+                    filepath=str(filepath),
+                    size_kb=f"{len(response.content) / 1024:.1f}",
+                )
 
             except httpx.HTTPError as e:
-                print(f"    Failed: {e}")
+                logger.error("Download failed", filename=sample["filename"], error=str(e))
 
     # Create a metadata file describing the samples
     metadata_file = SAMPLES_DIR / "README.md"
@@ -84,7 +91,7 @@ def download_samples() -> None:
         )
         + "\n"
     )
-    print(f"\nCreated: {metadata_file}")
+    logger.info("Created metadata file", filepath=str(metadata_file))
 
 
 if __name__ == "__main__":

@@ -25,11 +25,15 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import structlog
+
 from woo_hoo.config import get_settings
 from woo_hoo.models.requests import DocumentContent, MetadataGenerationRequest
 from woo_hoo.services.document_extractor import extract_text_from_file
 from woo_hoo.services.metadata_generator import MetadataGenerator
 from woo_hoo.services.prompt_templates import OutputMode, get_system_prompt
+
+logger = structlog.get_logger(__name__)
 
 SAMPLES_DIR = Path(__file__).parent.parent / "data" / "samples"
 
@@ -46,18 +50,6 @@ class TestResult:
     title: str | None
     error: str | None
     raw_response: dict | None
-
-
-def print_header(text: str) -> None:
-    """Print a formatted header."""
-    print(f"\n{'=' * 60}")
-    print(f"  {text}")
-    print("=" * 60)
-
-
-def print_section(text: str) -> None:
-    """Print a section header."""
-    print(f"\n--- {text} ---")
 
 
 async def test_single_file(
@@ -98,9 +90,9 @@ async def test_single_file(
         if len(text) > max_length:
             text = text[:max_length]
             if verbose:
-                print(f"  Extracted {len(text)} characters (truncated)")
+                logger.info("Text extracted (truncated)", chars=len(text))
         elif verbose:
-            print(f"  Extracted {len(text)} characters")
+            logger.info("Text extracted", chars=len(text))
     except Exception as e:
         return TestResult(
             filename=filepath.name,
@@ -173,72 +165,87 @@ async def run_all_tests(
         List of test results
     """
     if not SAMPLES_DIR.exists():
-        print(f"ERROR: Samples directory not found: {SAMPLES_DIR}")
-        print("Run: make download-samples")
+        logger.error(
+            "Samples directory not found",
+            path=str(SAMPLES_DIR),
+            hint="Run: make download-samples",
+        )
         return []
 
     pdf_files = sorted(SAMPLES_DIR.glob("*.pdf"))
     if not pdf_files:
-        print("ERROR: No PDF files found in samples directory")
-        print("Run: make download-samples")
+        logger.error(
+            "No PDF files found",
+            path=str(SAMPLES_DIR),
+            hint="Run: make download-samples",
+        )
         return []
 
     results = []
     for pdf_file in pdf_files:
-        print(f"\nTesting: {pdf_file.name}")
+        logger.info("Testing", filename=pdf_file.name)
         result = await test_single_file(pdf_file, verbose, output_mode)
         results.append(result)
 
         if result.success:
-            print(f"  ✓ Success ({result.processing_time_ms}ms)")
-            print(f"    Category: {result.category}")
-            print(f"    Title: {result.title}")
-            print_section(f"Generated Metadata: {pdf_file.name}")
-            print(json.dumps(result.raw_response, indent=2, ensure_ascii=False))
+            logger.info(
+                "Test passed",
+                processing_time_ms=result.processing_time_ms,
+                category=result.category,
+                title=result.title,
+            )
+            # Output full metadata JSON for inspection
+            logger.info("Generated metadata", filename=pdf_file.name)
+            sys.stdout.write(json.dumps(result.raw_response, indent=2, ensure_ascii=False))
+            sys.stdout.write("\n")
         else:
-            print(f"  ✗ Failed: {result.error}")
+            logger.error("Test failed", error=result.error)
 
     return results
 
 
-def print_summary(results: list[TestResult]) -> None:
-    """Print test summary."""
-    print_header("TEST SUMMARY")
-
+def log_summary(results: list[TestResult]) -> None:
+    """Log test summary."""
     passed = sum(1 for r in results if r.success)
     failed = len(results) - passed
 
-    print(f"\nTotal:  {len(results)}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {failed}")
+    logger.info(
+        "Test summary",
+        total=len(results),
+        passed=passed,
+        failed=failed,
+    )
 
     if failed > 0:
-        print("\nFailed tests:")
         for r in results:
             if not r.success:
-                print(f"  - {r.filename}: {r.error}")
+                logger.warning("Failed test", filename=r.filename, error=r.error)
 
     # Performance stats
     times = [r.processing_time_ms for r in results if r.processing_time_ms]
     if times:
-        print("\nProcessing times:")
-        print(f"  Average: {sum(times) / len(times):.0f}ms")
-        print(f"  Min: {min(times)}ms")
-        print(f"  Max: {max(times)}ms")
+        logger.info(
+            "Processing times",
+            average_ms=f"{sum(times) / len(times):.0f}",
+            min_ms=min(times),
+            max_ms=max(times),
+        )
 
 
 def show_prompt_preview(output_mode: OutputMode = OutputMode.XML) -> None:
     """Show a preview of the system prompt with schema."""
-    print_header("SYSTEM PROMPT PREVIEW")
     prompt = get_system_prompt(include_schema=True, output_mode=output_mode)
-    print(f"\nOutput mode: {output_mode.value.upper()}")
-    print(f"Length: {len(prompt)} characters")
-    print("\nFirst 2000 characters:")
-    print("-" * 40)
-    print(prompt[:2000])
-    print("-" * 40)
+    logger.info(
+        "System prompt preview",
+        output_mode=output_mode.value.upper(),
+        length=len(prompt),
+    )
+    # Write first 2000 chars to stdout for inspection
+    sys.stdout.write("\n--- First 2000 characters ---\n")
+    sys.stdout.write(prompt[:2000])
+    sys.stdout.write("\n")
     if len(prompt) > 2000:
-        print(f"... ({len(prompt) - 2000} more characters)")
+        sys.stdout.write(f"... ({len(prompt) - 2000} more characters)\n")
 
 
 async def main() -> int:
@@ -275,30 +282,35 @@ Examples:
     # Check API key
     settings = get_settings()
     if not settings.openrouter_api_key:
-        print("ERROR: OPENROUTER_API_KEY not set in .env")
-        print("Copy .env.example to .env and add your API key")
+        logger.error(
+            "API key not configured",
+            hint="Copy .env.example to .env and add your OPENROUTER_API_KEY",
+        )
         return 1
 
-    print_header("DIWOO E2E Test")
-    print(f"Model: {settings.default_model}")
-    print(f"Output mode: {output_mode.value.upper()}")
+    logger.info(
+        "DIWOO E2E Test",
+        model=settings.default_model,
+        output_mode=output_mode.value.upper(),
+    )
 
     # Run tests
     if args.file:
         if not args.file.exists():
-            print(f"ERROR: File not found: {args.file}")
+            logger.error("File not found", path=str(args.file))
             return 1
         result = await test_single_file(args.file, args.verbose, output_mode)
         results = [result]
 
         if result.success:
-            print_section("Generated Metadata")
-            print(json.dumps(result.raw_response, indent=2, ensure_ascii=False))
+            logger.info("Generated metadata")
+            sys.stdout.write(json.dumps(result.raw_response, indent=2, ensure_ascii=False))
+            sys.stdout.write("\n")
     else:
         results = await run_all_tests(args.verbose, output_mode)
 
     # Print summary
-    print_summary(results)
+    log_summary(results)
 
     # Save results
     if args.output:
@@ -318,7 +330,7 @@ Examples:
             ],
         }
         args.output.write_text(json.dumps(output_data, indent=2, ensure_ascii=False))
-        print(f"\nResults saved to: {args.output}")
+        logger.info("Results saved", filepath=str(args.output))
 
     # Return exit code
     failed = sum(1 for r in results if not r.success)

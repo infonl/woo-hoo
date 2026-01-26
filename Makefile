@@ -20,12 +20,15 @@ help:
 	@echo "  make test-e2e     Run e2e tests with httpx TestClient"
 	@echo "  make test-cov     Run tests with coverage"
 	@echo ""
-	@echo "Real data testing (requires OPENROUTER_API_KEY):"
+	@echo "Real API testing (requires OPENROUTER_API_KEY):"
+	@echo "  make test-api               Full e2e via HTTP API (default sample)"
+	@echo "  make test-api FILE=doc.pdf  Full e2e via HTTP API (specific file)"
+	@echo "  make test-api-models        List available models via API"
+	@echo ""
+	@echo "Direct service testing (requires OPENROUTER_API_KEY):"
 	@echo "  make download-samples       Download sample PDFs from open.overheid.nl"
 	@echo "  make test-real              Test all samples (XML mode - default)"
-	@echo "  make test-real-json         Test all samples (JSON mode)"
 	@echo "  make test-real-single       Test single PDF (default: woo_besluit)"
-	@echo "  make test-real-single-json  Test single PDF in JSON mode"
 	@echo "  make test-real-single FILE=path/to/doc.pdf"
 	@echo ""
 	@echo "Docker:"
@@ -129,6 +132,23 @@ endif
 
 show-prompt: $(INSTALL_SENTINEL)
 	uv run python scripts/test_e2e.py --show-prompt
+
+# Full API e2e test (uses real OpenRouter API via FastAPI endpoints)
+test-api: $(INSTALL_SENTINEL)
+ifdef FILE
+	uv run python scripts/test_api_e2e.py --file $(FILE)
+else
+	uv run python scripts/test_api_e2e.py
+endif
+
+test-api-text: $(INSTALL_SENTINEL)
+ifndef TEXT
+	$(error TEXT is required. Usage: make test-api-text TEXT="Your document text here")
+endif
+	uv run python scripts/test_api_e2e.py --text "$(TEXT)"
+
+test-api-models: $(INSTALL_SENTINEL)
+	uv run python scripts/test_api_e2e.py --list-models
 
 # Cleanup
 clean:

@@ -17,39 +17,46 @@ import asyncio
 import json
 from pathlib import Path
 
+import structlog
+
 from woo_hoo.config import get_settings
 from woo_hoo.models.requests import DocumentContent, MetadataGenerationRequest, PublisherHint
 from woo_hoo.services.document_extractor import extract_text_from_file
 from woo_hoo.services.metadata_generator import MetadataGenerator
+
+logger = structlog.get_logger(__name__)
 
 SAMPLES_DIR = Path(__file__).parent.parent / "data" / "samples"
 
 
 async def test_single_file(filepath: Path, publisher: str | None = None) -> None:
     """Test metadata generation for a single file."""
-    print(f"\n{'=' * 60}")
-    print(f"Testing: {filepath.name}")
-    print("=" * 60)
+    logger.info("Testing file", filename=filepath.name)
 
     # Check API key
     settings = get_settings()
     if not settings.openrouter_api_key:
-        print("ERROR: OPENROUTER_API_KEY not set in environment or .env file")
-        print("       Copy .env.example to .env and add your API key")
+        logger.error(
+            "API key not configured",
+            hint="Copy .env.example to .env and add your OPENROUTER_API_KEY",
+        )
         return
 
     # Extract text
-    print("\n1. Extracting text from document...")
+    logger.info("Extracting text from document")
     try:
         text = extract_text_from_file(filepath)
-        print(f"   Extracted {len(text)} characters")
-        print(f"   First 200 chars: {text[:200]}...")
+        logger.info(
+            "Text extracted",
+            chars=len(text),
+            preview=text[:200] + "...",
+        )
     except Exception as e:
-        print(f"   ERROR: {e}")
+        logger.error("Text extraction failed", error=str(e))
         return
 
     # Build request
-    print("\n2. Building metadata generation request...")
+    logger.info("Building metadata generation request")
     publisher_hint = PublisherHint(name=publisher) if publisher else None
     request = MetadataGenerationRequest(
         document=DocumentContent(text=text, filename=filepath.name),
@@ -58,7 +65,7 @@ async def test_single_file(filepath: Path, publisher: str | None = None) -> None
     )
 
     # Generate metadata
-    print(f"\n3. Generating metadata with {settings.default_model}...")
+    logger.info("Generating metadata", model=settings.default_model)
     generator = MetadataGenerator()
     try:
         response = await generator.generate(request)
@@ -66,26 +73,27 @@ async def test_single_file(filepath: Path, publisher: str | None = None) -> None
         await generator.close()
 
     # Show results
-    print("\n4. Results:")
     if response.success and response.suggestion:
         suggestion = response.suggestion
         metadata = suggestion.metadata
 
-        print(f"\n   Model: {suggestion.model_used}")
-        print(f"   Processing time: {suggestion.processing_time_ms}ms")
-        print(f"   Overall confidence: {suggestion.confidence.overall:.2f}")
+        logger.info(
+            "Generation successful",
+            model=suggestion.model_used,
+            processing_time_ms=suggestion.processing_time_ms,
+            confidence=f"{suggestion.confidence.overall:.2f}",
+        )
 
-        print(f"\n   Title: {metadata.titelcollectie.officiele_titel}")
+        logger.info("Title", title=metadata.titelcollectie.officiele_titel)
 
-        print("\n   Categories:")
         for cat in metadata.classificatiecollectie.informatiecategorieen:
-            print(f"      - {cat.categorie.name}: {cat.categorie.label}")
+            logger.info("Category", name=cat.categorie.name, label=cat.categorie.label)
 
         if metadata.classificatiecollectie.trefwoorden:
-            print(f"\n   Keywords: {', '.join(metadata.classificatiecollectie.trefwoorden)}")
+            logger.info("Keywords", keywords=metadata.classificatiecollectie.trefwoorden)
 
         if metadata.omschrijvingen:
-            print(f"\n   Description: {metadata.omschrijvingen[0][:200]}...")
+            logger.info("Description", text=metadata.omschrijvingen[0][:200] + "...")
 
         # Save full output
         output_file = filepath.with_suffix(".metadata.json")
@@ -101,26 +109,32 @@ async def test_single_file(filepath: Path, publisher: str | None = None) -> None
             },
         }
         output_file.write_text(json.dumps(output_data, indent=2, ensure_ascii=False))
-        print(f"\n   Full output saved to: {output_file}")
+        logger.info("Output saved", filepath=str(output_file))
 
     else:
-        print(f"\n   ERROR: {response.error}")
+        logger.error("Generation failed", error=response.error)
 
 
 async def test_all_samples() -> None:
     """Test metadata generation for all sample documents."""
     if not SAMPLES_DIR.exists():
-        print(f"Samples directory not found: {SAMPLES_DIR}")
-        print("Run: uv run python scripts/download_samples.py")
+        logger.error(
+            "Samples directory not found",
+            path=str(SAMPLES_DIR),
+            hint="Run: uv run python scripts/download_samples.py",
+        )
         return
 
     pdf_files = list(SAMPLES_DIR.glob("*.pdf"))
     if not pdf_files:
-        print("No PDF files found in samples directory")
-        print("Run: uv run python scripts/download_samples.py")
+        logger.error(
+            "No PDF files found",
+            path=str(SAMPLES_DIR),
+            hint="Run: uv run python scripts/download_samples.py",
+        )
         return
 
-    print(f"Found {len(pdf_files)} sample documents")
+    logger.info("Found sample documents", count=len(pdf_files))
 
     for pdf_file in pdf_files:
         await test_single_file(pdf_file)
@@ -135,7 +149,7 @@ def main() -> None:
 
     if args.file:
         if not args.file.exists():
-            print(f"File not found: {args.file}")
+            logger.error("File not found", path=str(args.file))
             return
         asyncio.run(test_single_file(args.file, args.publisher))
     else:
