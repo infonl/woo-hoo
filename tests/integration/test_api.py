@@ -293,6 +293,152 @@ class TestModelsEndpoint:
         assert default_model.startswith("mistralai/")
 
 
+class TestGenerateFromPublicatiebankEndpoint:
+    """Tests for the publicatiebank integration endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_publicatiebank_not_configured(self, async_client: AsyncClient):
+        """Should return 503 when publicatiebank is not configured."""
+        response = await async_client.post(
+            "/api/v1/metadata/generate-from-publicatiebank",
+            params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
+        )
+
+        assert response.status_code == 503
+        assert "GPP_PUBLICATIEBANK_URL" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_document_not_found(self, async_client: AsyncClient):
+        """Should return 404 when document is not found in publicatiebank."""
+        from woo_hoo.services.publicatiebank_client import DocumentNotFoundError
+
+        with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
+            mock_instance = AsyncMock()
+            mock_instance.is_configured = True
+            mock_instance.get_document = AsyncMock(
+                side_effect=DocumentNotFoundError("Document not found")
+            )
+            mock_instance.close = AsyncMock()
+            MockClient.return_value = mock_instance
+
+            response = await async_client.post(
+                "/api/v1/metadata/generate-from-publicatiebank",
+                params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
+            )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_document_download_error(self, async_client: AsyncClient):
+        """Should return 502 when document download fails."""
+        from woo_hoo.services.publicatiebank_client import DocumentDownloadError
+
+        with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
+            mock_instance = AsyncMock()
+            mock_instance.is_configured = True
+            mock_instance.get_document = AsyncMock(
+                side_effect=DocumentDownloadError("Upload not completed")
+            )
+            mock_instance.close = AsyncMock()
+            MockClient.return_value = mock_instance
+
+            response = await async_client.post(
+                "/api/v1/metadata/generate-from-publicatiebank",
+                params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
+            )
+
+        assert response.status_code == 502
+        assert "Upload not completed" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_generate_from_publicatiebank_with_mock(
+        self,
+        async_client: AsyncClient,
+    ):
+        """Test successful generation from publicatiebank with mocked responses."""
+        from woo_hoo.services.openrouter import ChatCompletionChoice, ChatCompletionResponse, ChatMessage
+        from woo_hoo.services.publicatiebank_client import PublicatiebankDocument
+
+        # Create mock publicatiebank document (use .txt so content is treated as plain text)
+        mock_document = PublicatiebankDocument(
+            uuid="550e8400-e29b-41d4-a716-446655440000",
+            officiele_titel="Test Document",
+            verkorte_titel="Test",
+            omschrijving="A test document",
+            bestandsnaam="test.txt",
+            bestandsformaat="text/plain",
+            bestandsomvang=1024,
+            publicatiestatus="published",
+            content=b"This is a test document with sufficient content for the metadata generator to process. " * 20,
+            kenmerken=[{"kenmerk": "TEST-001", "bron": "test-system"}],
+        )
+
+        # Mock XML response
+        mock_xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+<diwoo:Document xmlns:diwoo="https://standaarden.overheid.nl/diwoo/metadata/">
+  <diwoo:DiWoo>
+    <diwoo:identifiers>
+      <diwoo:identifier>TEST-001</diwoo:identifier>
+    </diwoo:identifiers>
+    <diwoo:publisher resource="https://identifier.overheid.nl/tooi/id/gemeente/gm0363">Test Publisher</diwoo:publisher>
+    <diwoo:titelcollectie>
+      <diwoo:officieleTitel>Test Document from Publicatiebank</diwoo:officieleTitel>
+    </diwoo:titelcollectie>
+    <diwoo:classificatiecollectie>
+      <diwoo:informatiecategorieen>
+        <diwoo:informatiecategorie resource="https://identifier.overheid.nl/tooi/def/thes/kern/c_5ba23c01">Adviezen</diwoo:informatiecategorie>
+      </diwoo:informatiecategorieen>
+    </diwoo:classificatiecollectie>
+    <diwoo:documenthandelingen>
+      <diwoo:documenthandeling>
+        <diwoo:soortHandeling resource="https://identifier.overheid.nl/tooi/def/thes/kern/c_vaststelling">vaststelling</diwoo:soortHandeling>
+        <diwoo:atTime>2024-01-15T10:00:00</diwoo:atTime>
+      </diwoo:documenthandeling>
+    </diwoo:documenthandelingen>
+  </diwoo:DiWoo>
+</diwoo:Document>"""
+
+        mock_llm_response = ChatCompletionResponse(
+            id="test-id",
+            model="mistralai/mistral-large-2411",
+            choices=[
+                ChatCompletionChoice(
+                    index=0,
+                    message=ChatMessage(role="assistant", content=mock_xml_response),
+                    finish_reason="stop",
+                )
+            ],
+        )
+
+        with (
+            patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockPubClient,
+            patch("woo_hoo.services.metadata_generator.MetadataGenerator._get_client") as mock_get_llm,
+        ):
+            # Mock publicatiebank client
+            mock_pub_instance = AsyncMock()
+            mock_pub_instance.is_configured = True
+            mock_pub_instance.get_document = AsyncMock(return_value=mock_document)
+            mock_pub_instance.close = AsyncMock()
+            MockPubClient.return_value = mock_pub_instance
+
+            # Mock LLM client
+            mock_llm_client = AsyncMock()
+            mock_llm_client.chat_completion = AsyncMock(return_value=mock_llm_response)
+            mock_get_llm.return_value = mock_llm_client
+
+            response = await async_client.post(
+                "/api/v1/metadata/generate-from-publicatiebank",
+                params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "suggestion" in data
+        assert data["suggestion"]["metadata"]["titelcollectie"]["officieleTitel"] == "Test Document from Publicatiebank"
+
+
 class TestOpenAPISchema:
     """Tests for OpenAPI schema availability."""
 

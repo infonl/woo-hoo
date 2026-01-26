@@ -24,6 +24,12 @@ from woo_hoo.models.responses import (
 )
 from woo_hoo.services.document_extractor import DocumentExtractionError, extract_text_from_bytes
 from woo_hoo.services.metadata_generator import MetadataGenerator
+from woo_hoo.services.publicatiebank_client import (
+    DocumentDownloadError,
+    DocumentNotFoundError,
+    PublicatiebankClient,
+    PublicatiebankNotConfiguredError,
+)
 from woo_hoo.utils.logging import get_logger
 
 
@@ -183,6 +189,104 @@ async def list_categories() -> CategoriesResponse:
         for cat in InformatieCategorie
     ]
     return CategoriesResponse(categories=categories)
+
+
+@router.post(
+    "/generate-from-publicatiebank",
+    response_model=MetadataGenerationResponse,
+    summary="Generate metadata from publicatiebank document",
+    description="Retrieve a document from GPP-publicatiebank by UUID and generate DIWOO-compliant metadata.",
+)
+async def generate_metadata_from_publicatiebank(
+    document_uuid: str,
+    publisher_name: str | None = None,
+    publisher_uri: str | None = None,
+    model: str = DEFAULT_LLM_MODEL,
+) -> MetadataGenerationResponse:
+    """Generate DIWOO metadata from a document in publicatiebank.
+
+    Args:
+        document_uuid: UUID of the document in publicatiebank
+        publisher_name: Optional publisher organization name
+        publisher_uri: Optional publisher TOOI URI
+        model: LLM model to use (defaults to Mistral Large)
+
+    Returns:
+        Generated metadata with confidence scores
+    """
+    _check_api_key()
+
+    # Check if publicatiebank is configured
+    client = PublicatiebankClient()
+    if not client.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GPP-publicatiebank is not configured. Set GPP_PUBLICATIEBANK_URL environment variable.",
+        )
+
+    # Fetch document from publicatiebank
+    try:
+        document = await client.get_document(document_uuid)
+    except PublicatiebankNotConfiguredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        ) from e
+    except DocumentNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except DocumentDownloadError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
+        ) from e
+    finally:
+        await client.close()
+
+    # Extract text from document content
+    try:
+        text = extract_text_from_bytes(document.content, document.bestandsnaam)
+    except DocumentExtractionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Failed to extract text from document: {e}",
+        ) from e
+
+    # Validate model format
+    if not LLMModel.is_valid_openrouter_model(model):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid model ID format: {model}. Expected format: provider/model-name",
+        )
+
+    # Build request
+    publisher_hint = None
+    if publisher_name:
+        publisher_hint = PublisherHint(
+            name=publisher_name,
+            tooi_uri=publisher_uri if publisher_uri else None,
+        )
+
+    request = MetadataGenerationRequest(
+        document=DocumentContent(text=text, filename=document.bestandsnaam),
+        publisher_hint=publisher_hint,
+        model=model,
+    )
+
+    logger.info(
+        "Generating metadata from publicatiebank document",
+        document_uuid=document_uuid,
+        title=document.officiele_titel,
+        filename=document.bestandsnaam,
+    )
+
+    generator = MetadataGenerator()
+    try:
+        return await generator.generate(request)
+    finally:
+        await generator.close()
 
 
 @router.get(
