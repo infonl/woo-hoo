@@ -87,6 +87,11 @@ class PublicatiebankClient:
             if self.api_token:
                 headers["Authorization"] = f"Token {self.api_token}"
 
+            # ODRC requires audit headers for request tracking
+            headers["Audit-User-ID"] = "woo-hoo-service"
+            headers["Audit-User-Representation"] = "Woo-Hoo Metadata Generation Service"
+            headers["Audit-Remarks"] = "Automated metadata generation"
+
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 headers=headers,
