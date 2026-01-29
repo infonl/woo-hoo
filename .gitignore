@@ -214,3 +214,4 @@ data/samples/*.metadata.json
 
 # Makefile install sentinel
 .install-sentinel
+.DS_Store
