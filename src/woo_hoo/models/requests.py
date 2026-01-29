@@ -27,7 +27,7 @@ class DocumentContent(BaseModel):
     text: str = Field(
         ...,
         min_length=10,
-        max_length=100000,
+        max_length=500_000_000,
         description="Extracted text content from the document",
     )
     filename: str | None = Field(
