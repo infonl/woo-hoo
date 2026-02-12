@@ -370,7 +370,49 @@ graph LR
     style gemeente fill:#e8f5e9,stroke:#4caf50
 ```
 
-Additional diagrams are available as Mermaid `.mmd` files in [docs/diagrams/](docs/diagrams/), viewable in any Mermaid-compatible viewer or IDE plugin. For a data sovereignty comparison table, see [docs/architecture.md](docs/architecture.md).
+### Internal Provider Routing
+
+```mermaid
+graph TB
+    subgraph "woo-hoo API"
+        A[MetadataRouter] --> B[MetadataGenerator]
+        B --> C[OpenRouterClient]
+    end
+
+    subgraph "Provider Detection"
+        C --> D{LLM_PROVIDER?}
+        D -->|"openrouter"| E[_openrouter_chat_completion]
+        D -->|"anthropic"| F[_anthropic_chat_completion]
+        D -->|"custom"| G[_custom_chat_completion]
+        D -->|"per-request override"| G
+    end
+
+    subgraph "Configuration"
+        H[LLM_API_KEY] --> E
+        H --> F
+        J[CUSTOM_LLM_BASE_URL] --> G
+        H -.-> G
+        K["Per-request: api_key,<br/>custom_base_url"] --> C
+    end
+
+    subgraph "External Services"
+        E -->|"OpenRouter SDK"| L[OpenRouter API]
+        F -->|"httpx POST<br/>Messages API"| M[Anthropic API]
+        G -->|"httpx POST<br/>OpenAI-compatible"| N[Local LLM Server]
+    end
+
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#fff3e0
+    style E fill:#e8f5e8
+    style F fill:#e8f5e8
+    style G fill:#e8f5e8
+    style L fill:#fff3e0
+    style M fill:#e1f5fe
+    style N fill:#e8f5e8
+```
+
+For a data sovereignty comparison table, see [docs/architecture.md](docs/architecture.md).
 
 ### LLM Providers
 

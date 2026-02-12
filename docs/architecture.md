@@ -1,25 +1,17 @@
-# Architecture Diagrams
+# Architecture
 
-## Diagram Files
+All architecture diagrams are embedded in [README.md](../README.md#architecture--data-sovereignty).
 
-The following Mermaid diagram files are available in `docs/diagrams/`:
+## Security & Data Sovereignty Comparison
 
-- **current-architecture.mmd** - Current Architecture (OpenRouter Only)
-- **proposed-architecture.mmd** - Proposed Architecture (Local LLM Support)
-- **data-flow-comparison.mmd** - Data Flow Comparison
-- **implementation-architecture.mmd** - Implementation Architecture
-- **system-overview.mmd** - System Overview (from README)
-- **data-sovereignty-comparison.mmd** - Data Sovereignty Comparison (from README)
-
-## Security & Data Sovereignty Benefits
-
-| Aspect               | Current (OpenRouter) | Local LLM               |
-|----------------------|----------------------|-------------------------|
-| Data Location        | US infrastructure (OpenRouter) | Municipal infrastructure |
-| Network Exposure     | Internet traffic required | Internal traffic only |
-| Third-party Trust    | Required (OpenRouter) | Not required |
-| GDPR Compliance      | Depends on OpenRouter | Full control |
-| Audit Trail          | Limited (OpenRouter logs) | Complete control |
-| Custom Models        | Limited to OpenRouter catalog | Any local model |
-| Cost Control         | Pay-per-use | Fixed infrastructure cost |
-| Latency              | Internet dependent | Local network speed |
+| Aspect | OpenRouter | Anthropic Direct | Local LLM (Custom) |
+| --- | --- | --- | --- |
+| Data Location | OpenRouter infra (US) | Anthropic infra (US) | Municipal infrastructure |
+| Network Exposure | Internet traffic | Internet traffic | Internal traffic only |
+| Third-party Trust | Required (OpenRouter) | Required (Anthropic) | Not required |
+| GDPR Compliance | Depends on provider | Depends on Anthropic | Full control |
+| Audit Trail | Limited | Limited | Complete control |
+| Model Selection | 30+ models | Claude only | Any local model |
+| Cost Model | Pay-per-use | Pay-per-use | Fixed infrastructure cost |
+| Latency | Internet dependent | Internet dependent | Local network speed |
+| GPU Required | No | No | Yes |
