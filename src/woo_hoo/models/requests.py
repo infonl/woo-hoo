@@ -84,7 +84,6 @@ class MetadataGenerationRequest(BaseModel):
         return v.strip()
 
 
-
 class MetadataValidationRequest(BaseModel):
     """Request to validate metadata against DIWOO schema."""
 

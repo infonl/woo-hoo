@@ -84,14 +84,14 @@ curl -X POST http://localhost:8000/api/v1/metadata/generate \
 | `POST` | `/api/v1/metadata/generate-from-publicatiebank` | Generate from publicatiebank document UUID |
 | `POST` | `/api/v1/metadata/validate` | Validate metadata |
 | `GET` | `/api/v1/metadata/categories` | List 17 Woo categories |
-| `GET` | `/api/v1/metadata/models` | List available LLM models |
+| `GET` | `/api/v1/metadata/openrouter-models` | List recommended OpenRouter models |
 | `GET` | `/health` | Health check |
 | `GET` | `/ready` | Readiness check |
 | `GET` | `/docs` | Swagger UI |
 
 ### Model Selection
 
-By default, Mistral Large (EU-based) is used for data sovereignty compliance. The `/models` endpoint lists all recommended models with EU-based models prioritized first.
+By default, Mistral Large (EU-based) is used for data sovereignty compliance when using OpenRouter. The `/openrouter-models` endpoint lists recommended models with EU-based models prioritized first. Custom LLM providers use their own model names (e.g., `mistral:latest` for Ollama).
 
 #### EU-Based Models (Recommended for Dutch Government)
 
@@ -126,8 +126,8 @@ curl -X POST http://localhost:8000/api/v1/metadata/generate \
   -H "Content-Type: application/json" \
   -d '{"document": {"text": "..."}, "model": "anthropic/claude-4.5-sonnet-20250929"}'
 
-# List all available models (EU models listed first)
-curl http://localhost:8000/api/v1/metadata/models
+# List recommended OpenRouter models (EU models listed first)
+curl http://localhost:8000/api/v1/metadata/openrouter-models
 ```
 
 ## The 17 Woo Information Categories
@@ -410,6 +410,31 @@ DEFAULT_MODEL=claude-sonnet-4-20250514
 | `custom` (no key) | No auth headers (e.g., local Ollama) |
 
 > **Tip**: Most local LLM servers (Ollama, vLLM, LocalAI, llama.cpp) provide an OpenAI-compatible API, so they work out of the box with the `custom` provider.
+
+### Per-Request Overrides
+
+All three generation endpoints (`/generate`, `/generate-from-file`, `/generate-from-publicatiebank`) accept optional per-request `api_key` and `custom_base_url` parameters. This allows callers to override the server-configured LLM provider on a per-request basis — useful for multi-tenant setups or letting users bring their own API key.
+
+```bash
+# Override LLM provider per request (e.g., use a local Ollama)
+curl -X POST http://localhost:8000/api/v1/metadata/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document": {"text": "Geachte heer/mevrouw..."},
+    "api_key": "my-openrouter-key",
+    "custom_base_url": "http://my-ollama:11434/v1",
+    "model": "mistral:latest"
+  }'
+
+# File upload with per-request override
+curl -X POST http://localhost:8000/api/v1/metadata/generate-from-file \
+  -F "file=@besluit.pdf" \
+  -F "api_key=my-openrouter-key" \
+  -F "custom_base_url=http://my-ollama:11434/v1" \
+  -F "model=mistral:latest"
+```
+
+When a per-request `api_key` is provided, it bypasses the server-side API key check (so the server doesn't need `LLM_API_KEY` configured for that request).
 
 ### Project Structure
 

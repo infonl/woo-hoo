@@ -223,13 +223,13 @@ class TestGenerateEndpoint:
         )
 
 
-class TestModelsEndpoint:
-    """Tests for the models endpoint."""
+class TestOpenrouterModelsEndpoint:
+    """Tests for the OpenRouter models endpoint."""
 
     @pytest.mark.asyncio
     async def test_list_models(self, async_client: AsyncClient):
         """Should return list of available models."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         assert response.status_code == 200
         data = response.json()
@@ -241,7 +241,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_models_have_required_fields(self, async_client: AsyncClient):
         """Each model should have required fields."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         for model in data["recommended_models"]:
@@ -253,7 +253,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_eu_models_listed_first(self, async_client: AsyncClient):
         """EU-based models should be listed before non-EU models."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         models = data["recommended_models"]
@@ -273,7 +273,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_non_eu_models_have_warning(self, async_client: AsyncClient):
         """Non-EU models should have a warning message."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         for model in data["recommended_models"]:
@@ -284,7 +284,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_default_model_is_eu_based(self, async_client: AsyncClient):
         """The default model should be EU-based."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         default_model = data["default_model"]
