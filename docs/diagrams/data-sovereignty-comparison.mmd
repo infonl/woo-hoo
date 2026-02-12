@@ -1,0 +1,33 @@
+graph LR
+    subgraph gemeente["Gemeente Netwerk"]
+        app["woo-hoo"]
+        ollama["Ollama / vLLM<br/><b>Lokale LLM</b>"]
+    end
+
+    subgraph internet["Internet"]
+        openrouter["OpenRouter<br/><i>openrouter.ai</i>"]
+        anthropic["Anthropic API<br/><i>Direct, no middleman</i>"]
+    end
+
+    subgraph cloud["Cloud"]
+        mistral["Mistral AI<br/><i>EU 🇪🇺</i>"]
+        openai["OpenAI<br/><i>VS 🇺🇸</i>"]
+        claude["Claude<br/><i>VS 🇺🇸</i>"]
+    end
+
+    app -->|"Optie A: OpenRouter<br/>────────────────<br/>✅ 30+ modellen<br/>✅ Geen GPU nodig<br/>⚠️ Via OpenRouter infra<br/>⚠️ Data verlaat netwerk"| openrouter
+    openrouter --> mistral
+    openrouter --> openai
+
+    app -->|"Optie B: Anthropic direct<br/>────────────────<br/>✅ Geen middleman<br/>✅ Direct naar Anthropic<br/>⚠️ Data verlaat netwerk<br/>⚠️ Alleen Claude modellen"| anthropic
+    anthropic --> claude
+
+    app -->|"Optie C: Lokale LLM<br/>────────────────<br/>✅ Data blijft intern<br/>✅ Volledige controle<br/>⚠️ GPU hardware nodig<br/>⚠️ Zelf model beheren"| ollama
+
+    style ollama fill:#4caf50,stroke:#388e3c,color:#fff
+    style openrouter fill:#f5a623,stroke:#d4831f,color:#000
+    style anthropic fill:#d4a574,stroke:#b8860b,color:#000
+    style mistral fill:#2196f3,stroke:#1976d2,color:#fff
+    style openai fill:#ff5722,stroke:#d84315,color:#fff
+    style claude fill:#d4a574,stroke:#b8860b,color:#000
+    style gemeente fill:#e8f5e9,stroke:#4caf50

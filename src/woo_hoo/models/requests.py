@@ -64,13 +64,25 @@ class MetadataGenerationRequest(BaseModel):
         description="Include confidence scores in response",
     )
 
+    # Per-request authentication overrides
+    api_key: str | None = Field(
+        default=None,
+        description="Optional API key for this request (overrides settings)",
+    )
+    custom_base_url: str | None = Field(
+        default=None,
+        description="Optional custom base URL for this request (overrides settings)",
+    )
+
     @field_validator("model")
     @classmethod
     def validate_model(cls, v: str) -> str:
-        """Validate that model ID has valid OpenRouter format."""
-        if not LLMModel.is_valid_openrouter_model(v):
-            raise ValueError(f"Invalid model ID format: {v}. Expected format: provider/model-name")
-        return v
+        """Validate that model ID has valid format."""
+        # Allow any model format since we now support custom providers
+        if not v or len(v.strip()) < 1:
+            raise ValueError("Model cannot be empty")
+        return v.strip()
+
 
 
 class MetadataValidationRequest(BaseModel):

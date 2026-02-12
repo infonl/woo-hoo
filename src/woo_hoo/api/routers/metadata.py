@@ -34,12 +34,12 @@ from woo_hoo.utils.logging import get_logger
 
 
 def _check_api_key() -> None:
-    """Raise HTTPException if OpenRouter API key is not configured."""
+    """Raise HTTPException if LLM API key is not configured."""
     settings = get_settings()
-    if not settings.openrouter_api_key:
+    if not settings.llm_api_key and settings.llm_provider != "custom":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OpenRouter API key not configured. Set OPENROUTER_API_KEY environment variable.",
+            detail="LLM API key not configured. Set LLM_API_KEY environment variable.",
         )
 
 

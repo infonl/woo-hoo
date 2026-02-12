@@ -299,10 +299,16 @@ class TestGenerateFromPublicatiebankEndpoint:
     @pytest.mark.asyncio
     async def test_publicatiebank_not_configured(self, async_client: AsyncClient):
         """Should return 503 when publicatiebank is not configured."""
-        response = await async_client.post(
-            "/api/v1/metadata/generate-from-publicatiebank",
-            params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
-        )
+        with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
+            mock_instance = AsyncMock()
+            mock_instance.is_configured = False
+            mock_instance.close = AsyncMock()
+            MockClient.return_value = mock_instance
+
+            response = await async_client.post(
+                "/api/v1/metadata/generate-from-publicatiebank",
+                params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
+            )
 
         assert response.status_code == 503
         assert "GPP_PUBLICATIEBANK_URL" in response.json()["detail"]
@@ -315,9 +321,7 @@ class TestGenerateFromPublicatiebankEndpoint:
         with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
             mock_instance = AsyncMock()
             mock_instance.is_configured = True
-            mock_instance.get_document = AsyncMock(
-                side_effect=DocumentNotFoundError("Document not found")
-            )
+            mock_instance.get_document = AsyncMock(side_effect=DocumentNotFoundError("Document not found"))
             mock_instance.close = AsyncMock()
             MockClient.return_value = mock_instance
 
@@ -337,9 +341,7 @@ class TestGenerateFromPublicatiebankEndpoint:
         with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
             mock_instance = AsyncMock()
             mock_instance.is_configured = True
-            mock_instance.get_document = AsyncMock(
-                side_effect=DocumentDownloadError("Upload not completed")
-            )
+            mock_instance.get_document = AsyncMock(side_effect=DocumentDownloadError("Upload not completed"))
             mock_instance.close = AsyncMock()
             MockClient.return_value = mock_instance
 

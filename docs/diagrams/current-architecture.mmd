@@ -1,0 +1,25 @@
+graph TB
+    subgraph "Municipality Infrastructure"
+        A[Woo App] --> B[woo-hoo API]
+    end
+    
+    subgraph "Internet"
+        B --> C[HTTPS/TLS]
+        C --> D[OpenRouter API]
+    end
+    
+    subgraph "OpenRouter Infrastructure (US)"
+        D --> E{Model Selection}
+        E -->|OpenAI| F[OpenAI GPT]
+        E -->|Anthropic| G[Anthropic Claude]
+        E -->|Mistral| H[Mistral AI EU]
+        E -->|Google| I[Google Gemini]
+    end
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style D fill:#fff3e0
+    style F fill:#e8f5e8
+    style G fill:#e8f5e8
+    style H fill:#e8f5e8
+    style I fill:#e8f5e8

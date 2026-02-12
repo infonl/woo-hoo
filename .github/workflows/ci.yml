@@ -1,7 +1,7 @@
 name: CI
 
 # Required GitHub Secrets:
-#   OPENROUTER_API_KEY    - OpenRouter API key (for e2e tests, optional)
+#   LLM_API_KEY           - LLM API key (for e2e tests, optional)
 #   DOCKERHUB_TOKEN       - Docker Hub access token (optional, for pushing)
 #
 # Required GitHub Variables:
@@ -110,7 +110,7 @@ jobs:
       - name: Test built image
         run: |
           docker run --rm -d --name woo-hoo-test -p 8000:8000 \
-            -e OPENROUTER_API_KEY=test \
+            -e LLM_API_KEY=test \
             ${{ env.IMAGE_NAME }}:${{ needs.setup.outputs.version }}
           sleep 5
           curl -f http://localhost:8000/health || exit 1

@@ -98,9 +98,9 @@ readinessProbe:
 # Application configuration
 # These map to environment variables in the container
 config:
-  # OpenRouter API (REQUIRED)
+  # LLM API key (REQUIRED for openrouter/anthropic, optional for custom)
   # Set via existingSecret or directly (not recommended for production)
-  openrouterApiKey: ""
+  llmApiKey: ""
 
   # LLM Model configuration
   defaultModel: "mistralai/mistral-large-2512"
@@ -126,7 +126,7 @@ config:
   gppApiToken: ""
 
 # Use existing secret for sensitive data
-# Secret should contain keys: OPENROUTER_API_KEY, GPP_API_TOKEN (optional)
+# Secret should contain keys: LLM_API_KEY, GPP_API_TOKEN (optional)
 existingSecret: ""
 
 # Extra environment variables

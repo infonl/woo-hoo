@@ -1,0 +1,33 @@
+graph TB
+    subgraph "Municipality Infrastructure"
+        A[Woo App] --> B[woo-hoo API]
+        B --> C{LLM Provider}
+    end
+    
+    subgraph "Local Infrastructure (Data Sovereignty)"
+        C -->|Custom/Local| D[Local LLM Server]
+        D --> E[Ollama/vLLM/LocalAI]
+        E --> F[Local Models<br/>Llama 3, Mistral, etc.]
+    end
+    
+    subgraph "Internet (Optional)"
+        C -->|OpenRouter| G[HTTPS/TLS]
+        G --> H[OpenRouter API]
+        H --> I{Cloud Models}
+        I --> J[OpenAI GPT]
+        I --> K[Anthropic Claude]
+        I --> L[Mistral AI EU]
+        I --> M[Google Gemini]
+    end
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style D fill:#e8f5e8
+    style E fill:#e8f5e8
+    style F fill:#e8f5e8
+    style G fill:#fff3e0
+    style H fill:#fff3e0
+    style J fill:#e8f5e8
+    style K fill:#e8f5e8
+    style L fill:#e8f5e8
+    style M fill:#e8f5e8

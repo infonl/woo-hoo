@@ -36,7 +36,7 @@ async def readiness_check() -> ReadyResponse:
     settings = get_settings()
 
     # Check if API key is configured
-    if not settings.openrouter_api_key:
+    if not settings.llm_api_key and settings.llm_provider != "custom":
         return ReadyResponse(
             status="not_configured",
             openrouter_connected=False,
