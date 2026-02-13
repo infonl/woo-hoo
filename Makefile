@@ -20,12 +20,12 @@ help:
 	@echo "  make test-e2e     Run e2e tests with httpx TestClient"
 	@echo "  make test-cov     Run tests with coverage"
 	@echo ""
-	@echo "Real API testing (requires OPENROUTER_API_KEY):"
+	@echo "Real API testing (requires LLM_API_KEY):"
 	@echo "  make test-api               Full e2e via HTTP API (default sample)"
 	@echo "  make test-api FILE=doc.pdf  Full e2e via HTTP API (specific file)"
 	@echo "  make test-api-models        List available models via API"
 	@echo ""
-	@echo "Direct service testing (requires OPENROUTER_API_KEY):"
+	@echo "Direct service testing (requires LLM_API_KEY):"
 	@echo "  make download-samples       Download sample PDFs from open.overheid.nl"
 	@echo "  make test-real              Test all samples (XML mode - default)"
 	@echo "  make test-real-single       Test single PDF (default: woo_besluit)"
@@ -101,7 +101,7 @@ ifndef FILE
 endif
 	uv run woo-hoo generate $(FILE)
 
-# Real data testing (requires OPENROUTER_API_KEY)
+# Real data testing (requires LLM_API_KEY)
 # Default mode is XML (LLM outputs XML, transformed to JSON in code)
 download-samples: $(INSTALL_SENTINEL)
 	uv run python scripts/download_samples.py

@@ -223,13 +223,13 @@ class TestGenerateEndpoint:
         )
 
 
-class TestModelsEndpoint:
-    """Tests for the models endpoint."""
+class TestOpenrouterModelsEndpoint:
+    """Tests for the OpenRouter models endpoint."""
 
     @pytest.mark.asyncio
     async def test_list_models(self, async_client: AsyncClient):
         """Should return list of available models."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         assert response.status_code == 200
         data = response.json()
@@ -241,7 +241,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_models_have_required_fields(self, async_client: AsyncClient):
         """Each model should have required fields."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         for model in data["recommended_models"]:
@@ -253,7 +253,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_eu_models_listed_first(self, async_client: AsyncClient):
         """EU-based models should be listed before non-EU models."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         models = data["recommended_models"]
@@ -273,7 +273,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_non_eu_models_have_warning(self, async_client: AsyncClient):
         """Non-EU models should have a warning message."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         for model in data["recommended_models"]:
@@ -284,7 +284,7 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_default_model_is_eu_based(self, async_client: AsyncClient):
         """The default model should be EU-based."""
-        response = await async_client.get("/api/v1/metadata/models")
+        response = await async_client.get("/api/v1/metadata/openrouter-models")
 
         data = response.json()
         default_model = data["default_model"]
@@ -299,10 +299,16 @@ class TestGenerateFromPublicatiebankEndpoint:
     @pytest.mark.asyncio
     async def test_publicatiebank_not_configured(self, async_client: AsyncClient):
         """Should return 503 when publicatiebank is not configured."""
-        response = await async_client.post(
-            "/api/v1/metadata/generate-from-publicatiebank",
-            params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
-        )
+        with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
+            mock_instance = AsyncMock()
+            mock_instance.is_configured = False
+            mock_instance.close = AsyncMock()
+            MockClient.return_value = mock_instance
+
+            response = await async_client.post(
+                "/api/v1/metadata/generate-from-publicatiebank",
+                params={"document_uuid": "550e8400-e29b-41d4-a716-446655440000"},
+            )
 
         assert response.status_code == 503
         assert "GPP_PUBLICATIEBANK_URL" in response.json()["detail"]
@@ -315,9 +321,7 @@ class TestGenerateFromPublicatiebankEndpoint:
         with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
             mock_instance = AsyncMock()
             mock_instance.is_configured = True
-            mock_instance.get_document = AsyncMock(
-                side_effect=DocumentNotFoundError("Document not found")
-            )
+            mock_instance.get_document = AsyncMock(side_effect=DocumentNotFoundError("Document not found"))
             mock_instance.close = AsyncMock()
             MockClient.return_value = mock_instance
 
@@ -337,9 +341,7 @@ class TestGenerateFromPublicatiebankEndpoint:
         with patch("woo_hoo.api.routers.metadata.PublicatiebankClient") as MockClient:
             mock_instance = AsyncMock()
             mock_instance.is_configured = True
-            mock_instance.get_document = AsyncMock(
-                side_effect=DocumentDownloadError("Upload not completed")
-            )
+            mock_instance.get_document = AsyncMock(side_effect=DocumentDownloadError("Upload not completed"))
             mock_instance.close = AsyncMock()
             MockClient.return_value = mock_instance
 

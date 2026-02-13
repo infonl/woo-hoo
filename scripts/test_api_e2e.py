@@ -80,7 +80,7 @@ def test_health() -> bool:
 def list_models() -> None:
     """List available models."""
     logger.info("Fetching models")
-    response = httpx.get(f"{BASE_URL}/api/v1/metadata/models")
+    response = httpx.get(f"{BASE_URL}/api/v1/metadata/openrouter-models")
 
     if response.status_code != 200:
         logger.error("Failed", status_code=response.status_code)

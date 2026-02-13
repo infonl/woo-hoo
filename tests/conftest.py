@@ -9,7 +9,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 # Set test environment variables before importing app
-os.environ.setdefault("OPENROUTER_API_KEY", "test-api-key-for-testing")
+os.environ.setdefault("LLM_API_KEY", "test-api-key-for-testing")
 os.environ.setdefault("LOG_FORMAT", "console")
 os.environ.setdefault("LOG_LEVEL", "DEBUG")
 

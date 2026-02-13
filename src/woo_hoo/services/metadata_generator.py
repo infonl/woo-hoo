@@ -127,6 +127,9 @@ class MetadataGenerator:
                 model=model,
                 temperature=self.settings.llm_temperature,
                 response_format=response_format,
+                # Pass per-request overrides
+                api_key=request.api_key,
+                custom_base_url=request.custom_base_url,
             )
 
             # Parse LLM response

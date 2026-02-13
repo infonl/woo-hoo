@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end test script for metadata generation with real OpenRouter API.
+"""End-to-end test script for metadata generation with real LLM API.
 
 This script tests the full flow:
 1. Extract text from PDF
@@ -8,7 +8,7 @@ This script tests the full flow:
 4. Output results as JSON
 
 Prerequisites:
-    OPENROUTER_API_KEY must be set in .env
+    LLM_API_KEY must be set in .env
 
 Usage:
     uv run python scripts/test_e2e.py
@@ -70,7 +70,7 @@ async def test_single_file(
     settings = get_settings()
 
     # Check API key
-    if not settings.openrouter_api_key:
+    if not settings.llm_api_key and settings.llm_provider != "custom":
         return TestResult(
             filename=filepath.name,
             success=False,
@@ -78,7 +78,7 @@ async def test_single_file(
             processing_time_ms=None,
             category=None,
             title=None,
-            error="OPENROUTER_API_KEY not configured",
+            error="LLM_API_KEY not configured",
             raw_response=None,
         )
 
@@ -281,10 +281,10 @@ Examples:
 
     # Check API key
     settings = get_settings()
-    if not settings.openrouter_api_key:
+    if not settings.llm_api_key and settings.llm_provider != "custom":
         logger.error(
             "API key not configured",
-            hint="Copy .env.example to .env and add your OPENROUTER_API_KEY",
+            hint="Copy .env.example to .env and add your LLM_API_KEY",
         )
         return 1
 
