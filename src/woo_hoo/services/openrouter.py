@@ -19,7 +19,7 @@ from woo_hoo.utils.logging import get_logger
 from woo_hoo.utils.retry import RetryConfig, with_retry
 
 if TYPE_CHECKING:
-    from openrouter.types.chat_completion_response import ChatCompletionResponse as SDKResponse
+    from openrouter.types.chat_completion_response import ChatCompletionResponse as SDKResponse  # pyrefly: ignore
 
 logger = get_logger(__name__)
 
@@ -276,7 +276,7 @@ class OpenRouterClient:
             headers["Authorization"] = f"Bearer {effective_api_key}"
 
         # Build payload (OpenAI-compatible format)
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "temperature": temperature,

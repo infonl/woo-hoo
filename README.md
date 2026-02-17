@@ -21,6 +21,7 @@ LLM-powered DIWOO metadata generation for Dutch government documents under the W
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) package manager
+- [just](https://just.systems/) command runner
 - OpenRouter API key ([get one here](https://openrouter.ai/keys))
 
 ### Installation
@@ -30,7 +31,7 @@ LLM-powered DIWOO metadata generation for Dutch government documents under the W
 cd woo-hoo
 
 # Install dependencies
-make install
+just install
 
 # Copy env file and add your API key
 cp .env.example .env
@@ -42,7 +43,7 @@ cp .env.example .env
 **Start the API server:**
 
 ```bash
-make dev
+just dev
 # API available at http://localhost:8000
 # Swagger docs at http://localhost:8000/docs
 ```
@@ -156,8 +157,8 @@ curl http://localhost:8000/api/v1/metadata/openrouter-models
 
 ```bash
 # Build and run
-make docker-build
-make docker-run
+just docker-build
+just docker-run
 
 # Or with docker-compose
 docker compose up woo-hoo
@@ -179,7 +180,7 @@ cp deploy/local/secrets.env.example deploy/local/secrets.env
 # Edit secrets.env with your LLM_API_KEY
 
 # Deploy
-make deploy-local
+just deploy-local
 
 # Add to /etc/hosts
 echo "$(minikube ip) woo-hoo.local" | sudo tee -a /etc/hosts
@@ -188,7 +189,7 @@ echo "$(minikube ip) woo-hoo.local" | sudo tee -a /etc/hosts
 curl http://woo-hoo.local/health
 
 # Delete
-make deploy-local-delete
+just deploy-local-delete
 ```
 
 ### Production
@@ -216,16 +217,16 @@ See [deploy/values-production.yaml.example](deploy/values-production.yaml.exampl
 
 ```bash
 # Run tests
-make test
+just test
 
 # Run linter
-make lint
+just lint
 
 # Format code
-make format
+just format
 
 # Type check
-make typecheck
+just typecheck
 ```
 
 ### Testing with Real Documents
@@ -234,17 +235,17 @@ Download sample documents from open.overheid.nl and test with real API calls:
 
 ```bash
 # Download sample PDFs
-make download-samples
+just download-samples
 
 # Test all samples (XML mode - default)
-make test-real
+just test-real
 
 # Test a single file
-make test-real-single
-make test-real-single FILE=path/to/doc.pdf
+just test-real-single
+just test-real-single path/to/doc.pdf
 
 # Show the system prompt sent to the LLM
-make show-prompt
+just show-prompt
 ```
 
 ## Configuration
@@ -480,7 +481,7 @@ When a per-request `api_key` is provided, it bypasses the server-side API key ch
 
 ### Project Structure
 
-```
+```text
 woo-hoo/
 ├── src/woo_hoo/
 │   ├── api/           # FastAPI endpoints
@@ -499,7 +500,7 @@ woo-hoo/
 │   └── integration/   # API e2e tests
 ├── Dockerfile         # Multi-stage Docker build
 ├── docker-compose.yml # Local development
-└── Makefile           # Common tasks
+└── justfile           # Common tasks
 ```
 
 ## Integration with GPP

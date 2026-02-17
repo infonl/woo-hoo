@@ -238,7 +238,7 @@ class MetadataGenerator:
             verkorte_titels = llm_output.get("verkorte_titels")
             alternatieve_titels = None
 
-        titelcollectie = TitelCollectie(
+        titelcollectie = TitelCollectie(  # pyrefly: ignore[missing-argument] - populate_by_name=True
             officiele_titel=officiele_titel[:2000],
             verkorte_titels=verkorte_titels,
             alternatieve_titels=alternatieve_titels,
@@ -289,7 +289,7 @@ class MetadataGenerator:
 
         # Build document handeling
         documenthandelingen = [
-            DocumentHandeling(
+            DocumentHandeling(  # pyrefly: ignore[missing-argument] - populate_by_name=True
                 soort_handeling=SoortHandelingMeta(handeling=SoortHandeling.REGISTRATIE),
                 at_time=datetime.now(),
                 was_associated_with=publisher,

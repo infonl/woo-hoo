@@ -127,7 +127,12 @@ def generate(
         raise typer.Exit(1)
 
     # Output result
-    result = response.suggestion.metadata.model_dump(mode="json", by_alias=True, exclude_none=True)
+    suggestion = response.suggestion
+    if suggestion is None:
+        typer.echo("Error: no suggestion returned", err=True)
+        raise typer.Exit(1)
+
+    result = suggestion.metadata.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     if output:
         output.write_text(json.dumps(result, indent=2, ensure_ascii=False))
@@ -135,9 +140,9 @@ def generate(
     else:
         typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
 
-    typer.echo(f"\nConfidence: {response.suggestion.confidence.overall:.2f}")
-    typer.echo(f"Model: {response.suggestion.model_used}")
-    typer.echo(f"Processing time: {response.suggestion.processing_time_ms}ms")
+    typer.echo(f"\nConfidence: {suggestion.confidence.overall:.2f}")
+    typer.echo(f"Model: {suggestion.model_used}")
+    typer.echo(f"Processing time: {suggestion.processing_time_ms}ms")
 
 
 @app.command()
