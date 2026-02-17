@@ -10,10 +10,8 @@ name: CI
 on:
   push:
     branches:
-      # TODO: Enable when ready
-      - i-dont-exist
-      # - main
-      # - stable/*
+      - main
+      - stable/*
     tags:
       - '*'
   pull_request:
