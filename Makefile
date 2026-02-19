@@ -13,7 +13,7 @@ help:
 	@echo "  make lint         Run ruff linter"
 	@echo "  make format       Format code with ruff"
 	@echo "  make typecheck    Run pyrefly type checker"
-	@echo ""
+	@echo "" 
 	@echo "Testing:"
 	@echo "  make test         Run all tests"
 	@echo "  make test-unit    Run unit tests only"
@@ -55,7 +55,7 @@ $(INSTALL_SENTINEL): pyproject.toml uv.lock
 	@touch $(INSTALL_SENTINEL)
 
 dev: $(INSTALL_SENTINEL)
-	uv run uvicorn woo_hoo.main:app --host 0.0.0.0 --port 8000 --reload
+	uv run uvicorn woo_hoo.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src
 
 lint: $(INSTALL_SENTINEL)
 	uv run ruff check src tests
