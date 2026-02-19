@@ -2,7 +2,7 @@
 """End-to-end test script for metadata generation with real LLM API.
 
 This script tests the full flow:
-1. Extract text from PDF
+1. Extract text from PDF 
 2. Generate metadata via LLM
 3. Validate the response matches DIWOO schema
 4. Output results as JSON

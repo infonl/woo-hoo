@@ -1,7 +1,7 @@
 # woo-hoo
 
 > Let the ghost fill in your metadata 👻
-
+ 
 LLM-powered DIWOO metadata generation for Dutch government documents under the Wet open overheid (Woo).
 
 ## Features
