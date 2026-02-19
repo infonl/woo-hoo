@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Test metadata generation with real documents and OpenRouter API.
+"""Test metadata generation with real documents and LLM API.
 
 Prerequisites:
-1. Set OPENROUTER_API_KEY in your .env file
+1. Set LLM_API_KEY in your .env file
 2. Run: uv run python scripts/download_samples.py
 
 Usage:
@@ -35,10 +35,10 @@ async def test_single_file(filepath: Path, publisher: str | None = None) -> None
 
     # Check API key
     settings = get_settings()
-    if not settings.openrouter_api_key:
+    if not settings.llm_api_key:
         logger.error(
             "API key not configured",
-            hint="Copy .env.example to .env and add your OPENROUTER_API_KEY",
+            hint="Copy .env.example to .env and add your LLM_API_KEY",
         )
         return
 

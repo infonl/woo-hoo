@@ -201,7 +201,7 @@ def parse_xml_to_diwoo(
     identifiers = None
     identifiers_elem = _find(diwoo, "diwoo:identifiers")
     if identifiers_elem is not None:
-        identifiers = [_get_text(elem) for elem in _findall(identifiers_elem, "diwoo:identifier") if _get_text(elem)]
+        identifiers = [t for elem in _findall(identifiers_elem, "diwoo:identifier") if (t := _get_text(elem))]
 
     # Extract publisher
     publisher = _parse_organisation(_find(diwoo, "diwoo:publisher"))
@@ -220,9 +220,7 @@ def parse_xml_to_diwoo(
     omschrijvingen = None
     omschrijvingen_elem = _find(diwoo, "diwoo:omschrijvingen")
     if omschrijvingen_elem is not None:
-        omschrijvingen = [
-            _get_text(elem) for elem in _findall(omschrijvingen_elem, "diwoo:omschrijving") if _get_text(elem)
-        ]
+        omschrijvingen = [t for elem in _findall(omschrijvingen_elem, "diwoo:omschrijving") if (t := _get_text(elem))]
 
     # Extract classificatiecollectie
     classificatiecollectie = _parse_classificatiecollectie(_find(diwoo, "diwoo:classificatiecollectie"))
@@ -286,14 +284,14 @@ def _parse_organisation(elem: etree._Element | None) -> Organisatie:
 def _parse_titelcollectie(elem: etree._Element | None) -> TitelCollectie:
     """Parse titelcollectie element."""
     if elem is None:
-        return TitelCollectie(officiele_titel="Onbekende titel")
+        return TitelCollectie(officiele_titel="Onbekende titel")  # pyrefly: ignore[missing-argument]
 
     officiele_titel = _get_text(_find(elem, "diwoo:officieleTitel")) or "Onbekende titel"
 
-    verkorte_titels = [_get_text(e) for e in _findall(elem, "diwoo:verkorteTitel") if _get_text(e)]
-    alternatieve_titels = [_get_text(e) for e in _findall(elem, "diwoo:alternatieveTitel") if _get_text(e)]
+    verkorte_titels = [t for e in _findall(elem, "diwoo:verkorteTitel") if (t := _get_text(e))]
+    alternatieve_titels = [t for e in _findall(elem, "diwoo:alternatieveTitel") if (t := _get_text(e))]
 
-    return TitelCollectie(
+    return TitelCollectie(  # pyrefly: ignore[missing-argument] - populate_by_name=True
         officiele_titel=officiele_titel[:2000],
         verkorte_titels=verkorte_titels if verkorte_titels else None,
         alternatieve_titels=alternatieve_titels if alternatieve_titels else None,
@@ -343,7 +341,7 @@ def _parse_classificatiecollectie(elem: etree._Element | None) -> ClassificatieC
     trefwoorden: list[str] | None = None
     tref_elem = _find(elem, "diwoo:trefwoorden")
     if tref_elem is not None:
-        trefwoorden = [_get_text(e) for e in _findall(tref_elem, "diwoo:trefwoord") if _get_text(e)]
+        trefwoorden = [t for e in _findall(tref_elem, "diwoo:trefwoord") if (t := _get_text(e))]
 
     return ClassificatieCollectie(
         informatiecategorieen=informatiecategorieen,
@@ -408,7 +406,7 @@ def _parse_documenthandelingen(
             at_time = _parse_datetime(at_time_str) or datetime.now()
 
             handelingen.append(
-                DocumentHandeling(
+                DocumentHandeling(  # pyrefly: ignore[missing-argument] - populate_by_name=True
                     soort_handeling=soort_handeling,
                     at_time=at_time,
                     was_associated_with=associated_with,
@@ -418,7 +416,7 @@ def _parse_documenthandelingen(
     # Ensure at least one handeling
     if not handelingen:
         handelingen = [
-            DocumentHandeling(
+            DocumentHandeling(  # pyrefly: ignore[missing-argument] - populate_by_name=True
                 soort_handeling=SoortHandelingMeta(handeling=SoortHandeling.REGISTRATIE),
                 at_time=datetime.now(),
                 was_associated_with=publisher,

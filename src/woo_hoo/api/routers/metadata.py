@@ -33,13 +33,15 @@ from woo_hoo.services.publicatiebank_client import (
 from woo_hoo.utils.logging import get_logger
 
 
-def _check_api_key() -> None:
-    """Raise HTTPException if OpenRouter API key is not configured."""
+def _check_api_key(per_request_key: str | None = None) -> None:
+    """Raise HTTPException if LLM API key is not configured."""
+    if per_request_key:
+        return
     settings = get_settings()
-    if not settings.openrouter_api_key:
+    if not settings.llm_api_key and settings.llm_provider != "custom":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OpenRouter API key not configured. Set OPENROUTER_API_KEY environment variable.",
+            detail="LLM API key not configured. Set LLM_API_KEY environment variable.",
         )
 
 
@@ -64,7 +66,7 @@ async def generate_metadata(
     Returns:
         Generated metadata with confidence scores
     """
-    _check_api_key()
+    _check_api_key(request.api_key)
     generator = MetadataGenerator()
     try:
         return await generator.generate(request)
@@ -82,7 +84,14 @@ async def generate_metadata_from_file(
     file: UploadFile = File(..., description="PDF or text file to analyze"),
     publisher_name: str | None = Form(None, description="Publisher organization name"),
     publisher_uri: str | None = Form(None, description="Publisher TOOI URI"),
-    model: str = Form(DEFAULT_LLM_MODEL, description="LLM model to use (any valid OpenRouter model ID)"),
+    model: str = Form(
+        DEFAULT_LLM_MODEL,
+        description="LLM model to use. Default is for OpenRouter; custom providers use their own model names (e.g., mistral:latest)",
+    ),
+    api_key: str | None = Form(None, description="Optional API key for this request (overrides settings)"),
+    custom_base_url: str | None = Form(
+        None, description="Optional custom LLM base URL for this request (overrides settings)"
+    ),
 ) -> MetadataGenerationResponse:
     """Generate DIWOO metadata from an uploaded file.
 
@@ -97,7 +106,7 @@ async def generate_metadata_from_file(
     Returns:
         Generated metadata with confidence scores
     """
-    _check_api_key()
+    _check_api_key(api_key)
     # Extract text from file
     try:
         content = await file.read()
@@ -108,8 +117,12 @@ async def generate_metadata_from_file(
             detail=f"Failed to extract text from file: {e}",
         ) from e
 
-    # Validate model format
-    if not LLMModel.is_valid_openrouter_model(model):
+    # Validate model format (only for OpenRouter — custom providers use free-form model names)
+    if (
+        not custom_base_url
+        and get_settings().llm_provider != "custom"
+        and not LLMModel.is_valid_openrouter_model(model)
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid model ID format: {model}. Expected format: provider/model-name",
@@ -127,6 +140,8 @@ async def generate_metadata_from_file(
         document=DocumentContent(text=text, filename=file.filename),
         publisher_hint=publisher_hint,
         model=model,
+        api_key=api_key,
+        custom_base_url=custom_base_url,
     )
 
     generator = MetadataGenerator()
@@ -202,6 +217,8 @@ async def generate_metadata_from_publicatiebank(
     publisher_name: str | None = None,
     publisher_uri: str | None = None,
     model: str = DEFAULT_LLM_MODEL,
+    api_key: str | None = None,
+    custom_base_url: str | None = None,
 ) -> MetadataGenerationResponse:
     """Generate DIWOO metadata from a document in publicatiebank.
 
@@ -214,7 +231,7 @@ async def generate_metadata_from_publicatiebank(
     Returns:
         Generated metadata with confidence scores
     """
-    _check_api_key()
+    _check_api_key(api_key)
 
     # Check if publicatiebank is configured
     client = PublicatiebankClient()
@@ -254,8 +271,12 @@ async def generate_metadata_from_publicatiebank(
             detail=f"Failed to extract text from document: {e}",
         ) from e
 
-    # Validate model format
-    if not LLMModel.is_valid_openrouter_model(model):
+    # Validate model format (only for OpenRouter — custom providers use free-form model names)
+    if (
+        not custom_base_url
+        and get_settings().llm_provider != "custom"
+        and not LLMModel.is_valid_openrouter_model(model)
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid model ID format: {model}. Expected format: provider/model-name",
@@ -273,6 +294,8 @@ async def generate_metadata_from_publicatiebank(
         document=DocumentContent(text=text, filename=document.bestandsnaam),
         publisher_hint=publisher_hint,
         model=model,
+        api_key=api_key,
+        custom_base_url=custom_base_url,
     )
 
     logger.info(
@@ -290,17 +313,17 @@ async def generate_metadata_from_publicatiebank(
 
 
 @router.get(
-    "/models",
+    "/openrouter-models",
     response_model=ModelsResponse,
-    summary="List available LLM models",
+    summary="List recommended OpenRouter models",
     description=(
-        "Get recommended LLM models for metadata extraction. "
+        "Get recommended OpenRouter models for metadata extraction. "
         "EU-based models (Mistral AI) are recommended for data sovereignty compliance. "
-        "Any valid OpenRouter model can be used."
+        "Only relevant when using the OpenRouter provider — custom providers use their own model names."
     ),
 )
-async def list_models() -> ModelsResponse:
-    """List available LLM models for metadata extraction.
+async def list_openrouter_models() -> ModelsResponse:
+    """List recommended OpenRouter models for metadata extraction.
 
     Returns:
         List of recommended models with the default highlighted.

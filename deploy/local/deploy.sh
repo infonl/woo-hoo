@@ -73,8 +73,8 @@ load_secrets() {
     source "$SECRETS_FILE"
     set +a
 
-    if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
-        log_error "OPENROUTER_API_KEY not set in $SECRETS_FILE"
+    if [[ -z "${LLM_API_KEY:-}" ]]; then
+        log_error "LLM_API_KEY not set in $SECRETS_FILE"
         exit 1
     fi
 
@@ -105,7 +105,7 @@ create_secrets() {
 
     # Create secret from env vars
     kubectl create secret generic woo-hoo-secrets \
-        --from-literal=OPENROUTER_API_KEY="${OPENROUTER_API_KEY}" \
+        --from-literal=LLM_API_KEY="${LLM_API_KEY}" \
         --from-literal=GPP_API_TOKEN="${GPP_API_TOKEN:-}" \
         -n "$NAMESPACE"
 

@@ -48,7 +48,7 @@ config:
 # IMPORTANT: Use existing secret for sensitive data
 # Create the secret beforehand:
 #   kubectl create secret generic woo-hoo-secrets \
-#     --from-literal=OPENROUTER_API_KEY=$OPENROUTER_API_KEY \
+#     --from-literal=LLM_API_KEY=$LLM_API_KEY \
 #     --from-literal=GPP_API_TOKEN=$GPP_API_TOKEN
 existingSecret: woo-hoo-secrets
 

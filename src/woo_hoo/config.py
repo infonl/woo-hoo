@@ -21,10 +21,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # OpenRouter API
-    openrouter_api_key: str = Field(
+    # LLM API Key (used for whichever provider is selected)
+    llm_api_key: str = Field(
         "",
-        description="OpenRouter API key for LLM access (required for generation)",
+        description="API key for the selected LLM provider (OpenRouter, Anthropic, or custom)",
     )
     default_model: str = Field(
         "mistralai/mistral-large-2512",
@@ -52,19 +52,22 @@ class Settings(BaseSettings):
         15000,
         description="Maximum document text length to send to LLM",
     )
-    llm_temperature: float = Field(
-        0.1,
-        ge=0.0,
-        le=1.0,
-        description="LLM temperature (low for structured extraction)",
+    llm_timeout_seconds: int = Field(60, description="Timeout for LLM requests in seconds")
+    llm_max_retries: int = Field(3, description="Maximum retry attempts for LLM requests")
+    llm_temperature: float = Field(0.1, description="Default sampling temperature")
+
+    # LLM Provider Settings
+    llm_provider: str = Field(
+        "openrouter",
+        description="LLM provider: 'openrouter', 'anthropic', or 'custom'",
     )
-    llm_timeout_seconds: int = Field(
-        60,
-        description="LLM request timeout in seconds",
+    anthropic_base_url: str = Field(
+        "https://api.anthropic.com",
+        description="Anthropic API base URL (override for proxies)",
     )
-    llm_max_retries: int = Field(
-        3,
-        description="Maximum retry attempts for LLM requests",
+    custom_llm_base_url: str = Field(
+        "",
+        description="Custom LLM base URL (e.g., http://ollama:11434/v1)",
     )
 
     # Optional GPP integration
