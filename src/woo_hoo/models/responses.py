@@ -29,6 +29,9 @@ class MetadataSuggestion(BaseModel):
     confidence: ConfidenceScores = Field(..., description="Confidence scores for the suggestion")
     model_used: str = Field(..., description="LLM model that generated this suggestion")
     processing_time_ms: int = Field(..., description="Processing time in milliseconds")
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 class MetadataGenerationResponse(BaseModel):

@@ -132,6 +132,9 @@ class MetadataGenerator:
                 custom_base_url=request.custom_base_url,
             )
 
+            # Get token usage from OpenRouter
+            usage = response.usage
+
             # Parse LLM response
             raw_content = response.choices[0].message.content
 
@@ -157,6 +160,11 @@ class MetadataGenerator:
                 confidence=confidence,
                 model_used=model,
                 processing_time_ms=elapsed_ms,
+
+                # Added for token counting:
+                prompt_tokens=usage.prompt_tokens if usage else None,
+                completion_tokens=usage.completion_tokens if usage else None,
+                total_tokens=usage.total_tokens if usage else None,
             )
 
             logger.info(
@@ -165,6 +173,9 @@ class MetadataGenerator:
                 elapsed_ms=elapsed_ms,
                 overall_confidence=confidence.overall,
                 output_mode=output_mode.value,
+                prompt_tokens=usage.prompt_tokens if usage else None,
+                completion_tokens=usage.completion_tokens if usage else None,
+                total_tokens=usage.total_tokens if usage else None
             )
 
             return MetadataGenerationResponse(
