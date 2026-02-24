@@ -34,7 +34,8 @@ dependencies = [
     "seaborn>=0.12.0",
     "rapidfuzz>=3.0.0",
     "reportlab>=4.0.0",
-    "pypdf>=3.0.0"
+    "pypdf>=3.0.0",
+    "seaborn>=0.13.2"
 ]
 
 [project.optional-dependencies]
